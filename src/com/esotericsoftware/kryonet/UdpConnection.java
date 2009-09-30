@@ -129,7 +129,7 @@ class UdpConnection {
 				if (selectionKey != null) selectionKey.selector().wakeup();
 			}
 		} catch (IOException ex) {
-			if (DEBUG) debug("Unable to close UDP connection.", ex);
+			if (DEBUG) debug("kryonet", "Unable to close UDP connection.", ex);
 		}
 	}
 

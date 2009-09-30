@@ -11,10 +11,10 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
-import com.esotericsoftware.kryo.serialize.IntSerializer;
 import com.esotericsoftware.kryo.Context;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
+import com.esotericsoftware.kryo.serialize.IntSerializer;
 
 /**
  * @author Nathan Sweet <misc@n4te.com>
@@ -45,7 +45,7 @@ class TcpConnection {
 			selectionKey = socketChannel.register(selector, SelectionKey.OP_READ);
 
 			if (DEBUG)
-				debug("Port " + socketChannel.socket().getLocalPort() + "/TCP connected to: "
+				debug("kryonet", "Port " + socketChannel.socket().getLocalPort() + "/TCP connected to: "
 					+ socketChannel.socket().getRemoteSocketAddress());
 
 			lastCommunicationTime = System.currentTimeMillis();
@@ -71,7 +71,7 @@ class TcpConnection {
 			selectionKey.attach(this);
 
 			if (DEBUG)
-				debug("Port " + socketChannel.socket().getLocalPort() + "/TCP connected to: "
+				debug("kryonet", "Port " + socketChannel.socket().getLocalPort() + "/TCP connected to: "
 					+ socketChannel.socket().getRemoteSocketAddress());
 
 			lastCommunicationTime = System.currentTimeMillis();
@@ -155,7 +155,7 @@ class TcpConnection {
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
 		synchronized (writeLock) {
 			int start = writeBuffer.position();
-			
+
 			Context context = Kryo.getContext();
 			context.put("connection", connection);
 			context.setRemoteEntityID(connection.id);
@@ -200,7 +200,7 @@ class TcpConnection {
 				if (selectionKey != null) selectionKey.selector().wakeup();
 			}
 		} catch (IOException ex) {
-			if (DEBUG) debug("Unable to close TCP connection.", ex);
+			if (DEBUG) debug("kryonet", "Unable to close TCP connection.", ex);
 		}
 	}
 
