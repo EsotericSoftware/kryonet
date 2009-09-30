@@ -86,9 +86,4 @@ public class DeltaTest extends KryoNetTestCase {
 		public String text;
 		public SomeData data;
 	}
-
-	public static void main (String[] args) throws Exception {
-		Log.set(LEVEL_TRACE);
-		new DeltaTest();
-	}
 }

@@ -3,7 +3,8 @@
 	<classpathentry excluding="**/.svn/*" kind="src" path="src"/>
 	<classpathentry excluding="**/.svn/*" kind="src" path="test"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/kryo"/>
 	<classpathentry kind="lib" path="build/junit-4.6.jar"/>
+	<classpathentry kind="lib" path="lib/kryo-0.91.jar"/>
+	<classpathentry kind="lib" path="lib/minlog-1.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

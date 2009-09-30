@@ -11,8 +11,6 @@ import com.esotericsoftware.minlog.Log;
 
 public class PingPongTest extends KryoNetTestCase {
 	public void testPingPong () throws IOException {
-		Log.set(LEVEL_DEBUG);
-
 		final Data dataTCP = new Data(true);
 		final Data dataUDP = new Data(false);
 

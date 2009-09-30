@@ -310,6 +310,12 @@ public class Server implements EndPoint {
 			}
 		}
 		if (TRACE) trace("kryonet", "Server thread stopped.");
+
+		// If the server was closed and the update thread shutdown, select one last time to complete closing the socket.
+		try {
+			selector.selectNow();
+		} catch (IOException ignored) {
+		}
 	}
 
 	public void start (boolean isDaemon) {
@@ -336,6 +342,7 @@ public class Server implements EndPoint {
 			selectionKey.attach(connection);
 
 			short id = nextConnectionID++;
+			if (nextConnectionID == -1) nextConnectionID = 1;
 			connection.id = id;
 			connection.addListener(dispatchListener);
 
@@ -476,7 +483,6 @@ public class Server implements EndPoint {
 		if (serverChannel != null) {
 			try {
 				serverChannel.close();
-				selector.selectNow();
 				selector.wakeup();
 				if (INFO) info("kryonet", "Server closed.");
 			} catch (IOException ex) {
