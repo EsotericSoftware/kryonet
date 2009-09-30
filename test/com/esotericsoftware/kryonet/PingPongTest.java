@@ -3,7 +3,10 @@ package com.esotericsoftware.kryonet;
 
 import static com.esotericsoftware.minlog.Log.LEVEL_DEBUG;
 
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryonet.Connection;
@@ -11,39 +14,17 @@ import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
 import com.esotericsoftware.minlog.Log;
 
-public class PingPongTestServer {
-	static public void register (Kryo kryo) {
-		kryo.register(String[].class);
-		kryo.register(int[].class);
-		kryo.register(short[].class);
-		kryo.register(float[].class);
-		kryo.register(double[].class);
-		kryo.register(long[].class);
-		kryo.register(byte[].class);
-		kryo.register(char[].class);
-		kryo.register(boolean[].class);
-		kryo.register(Integer[].class);
-		kryo.register(Short[].class);
-		kryo.register(Float[].class);
-		kryo.register(Double[].class);
-		kryo.register(Long[].class);
-		kryo.register(Byte[].class);
-		kryo.register(Character[].class);
-		kryo.register(Boolean[].class);
-		kryo.register(Data.class);
-	}
-
-	public static void main (String[] args) throws Exception {
+public class PingPongTest extends KryoNetTestCase {
+	public void testPingPong () throws IOException {
 		Log.set(LEVEL_DEBUG);
 
-		final Data dataTCP = new Data();
-		dataTCP.isTCP = true;
-		final Data dataUDP = new Data();
+		final Data dataTCP = new Data(true);
+		final Data dataUDP = new Data(false);
 
-		Server server = new Server();
+		final Server server = new Server();
 		register(server.getKryo());
-		new Thread(server).start();
-		server.bind(54555, 54777);
+		startEndPoint(server);
+		server.bind(tcpPort, udpPort);
 		server.addListener(new Listener() {
 			public void connected (Connection connection) {
 				connection.sendTCP(dataTCP);
@@ -63,6 +44,51 @@ public class PingPongTestServer {
 				}
 			}
 		});
+
+		// ----
+
+		final Client client = new Client();
+		register(client.getKryo());
+		startEndPoint(client);
+		client.addListener(new Listener() {
+			public void received (Connection connection, Object object) {
+				if (object instanceof Data) {
+					Data data = (Data)object;
+					if (data.isTCP) {
+						if (!data.equals(dataTCP)) throw new RuntimeException("Fail!");
+						connection.sendTCP(data);
+					} else {
+						if (!data.equals(dataUDP)) throw new RuntimeException("Fail!");
+						connection.sendUDP(data);
+					}
+				}
+			}
+		});
+
+		client.connect(5000, host, tcpPort, udpPort);
+
+		waitForThreads(5000);
+	}
+
+	static public void register (Kryo kryo) {
+		kryo.register(String[].class);
+		kryo.register(int[].class);
+		kryo.register(short[].class);
+		kryo.register(float[].class);
+		kryo.register(double[].class);
+		kryo.register(long[].class);
+		kryo.register(byte[].class);
+		kryo.register(char[].class);
+		kryo.register(boolean[].class);
+		kryo.register(Integer[].class);
+		kryo.register(Short[].class);
+		kryo.register(Float[].class);
+		kryo.register(Double[].class);
+		kryo.register(Long[].class);
+		kryo.register(Byte[].class);
+		kryo.register(Character[].class);
+		kryo.register(Boolean[].class);
+		kryo.register(Data.class);
 	}
 
 	static public class Data {
@@ -86,6 +112,13 @@ public class PingPongTestServer {
 		public Character[] Chars = {32345, 12345, 0, 1, 63, Character.MAX_VALUE, Character.MIN_VALUE};
 		public Boolean[] Booleans = {true, false};
 		public boolean isTCP;
+
+		public Data () {
+		}
+
+		public Data (boolean isTCP) {
+			this.isTCP = isTCP;
+		}
 
 		public int hashCode () {
 			final int prime = 31;

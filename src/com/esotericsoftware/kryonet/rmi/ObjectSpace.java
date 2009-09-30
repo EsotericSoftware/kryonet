@@ -424,7 +424,7 @@ public class ObjectSpace {
 
 	/**
 	 * Registers the classes needed for using ObjectSpaces. This should be called before any connections are opened.
-	 * @see Ninja#register(Class, Serializer)
+	 * @see Kryo#register(Class, Serializer)
 	 */
 	static public void registerClasses (Kryo kryo) {
 		kryo.register(Object[].class);

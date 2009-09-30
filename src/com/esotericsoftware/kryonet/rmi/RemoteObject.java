@@ -3,7 +3,7 @@ package com.esotericsoftware.kryonet.rmi;
 
 /**
  * Provides access to various settings on a remote object.
- * @see ObjectSpace#getRemoteObject(com.esotericsoftware.ninja.Connection, short, Class...)
+ * @see ObjectSpace#getRemoteObject(com.esotericsoftware.kryonet.Connection, short, Class...)
  * @author Nathan Sweet <misc@n4te.com>
  */
 public interface RemoteObject {
@@ -27,7 +27,7 @@ public interface RemoteObject {
 	/**
 	 * Waits for the response to the last method invocation to be received or the response timeout to be reached. Must not be
 	 * called from the connection's update thread.
-	 * @see ObjectSpace#getRemoteObject(com.esotericsoftware.ninja.Connection, short, Class...)
+	 * @see ObjectSpace#getRemoteObject(com.esotericsoftware.kryonet.Connection, short, Class...)
 	 */
 	public Object waitForLastResponse ();
 
@@ -39,7 +39,7 @@ public interface RemoteObject {
 	/**
 	 * Waits for the specified method invocation response to be received or the response timeout to be reached. Must not be called
 	 * from the connection's update thread.
-	 * @see ObjectSpace#getRemoteObject(com.esotericsoftware.ninja.Connection, short, Class...)
+	 * @see ObjectSpace#getRemoteObject(com.esotericsoftware.kryonet.Connection, short, Class...)
 	 */
 	public Object waitForResponse (byte responseID);
 

@@ -1,10 +1,11 @@
+
 package com.esotericsoftware.kryonet;
 
-
+import com.esotericsoftware.minlog.Log;
 
 /**
  * Marker interface to denote that a message is used by the Ninja framework and is generally invisible to the developer. Eg, these
- * messages are only logged at the {@link Log#TRACE} level.
+ * messages are only logged at the {@link Log#LEVEL_TRACE} level.
  */
 public interface FrameworkMessage {
 	static final FrameworkMessage.KeepAlive keepAlive = new KeepAlive();

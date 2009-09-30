@@ -20,8 +20,11 @@ import java.util.Set;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
+import com.esotericsoftware.kryo.serialize.FieldSerializer;
 import com.esotericsoftware.kryo.serialize.ShortSerializer;
 import com.esotericsoftware.kryonet.FrameworkMessage.DiscoverHost;
+import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
+import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterTCP;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
 
@@ -30,7 +33,7 @@ import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
  * @author Nathan Sweet <misc@n4te.com>
  */
 public class Client extends Connection implements EndPoint {
-	private final Kryo kryo = KryoNet.newKryo();
+	private final Kryo kryo;
 	private Selector selector;
 	private boolean udpRegistered;
 	private Object udpRegistrationLock = new Object();
@@ -46,12 +49,22 @@ public class Client extends Connection implements EndPoint {
 	}
 
 	/**
-	 * @see Connection#Connection(int)
+	 * @param bufferSize The maximum size an object may be after serialization.
 	 */
 	public Client (int bufferSize) {
 		super();
-		initialize(kryo, bufferSize);
 		endPoint = this;
+
+		kryo = new Kryo();
+		FieldSerializer fieldSerializer = new FieldSerializer(kryo);
+		kryo.register(RegisterTCP.class, fieldSerializer);
+		kryo.register(RegisterUDP.class, fieldSerializer);
+		kryo.register(KeepAlive.class, fieldSerializer);
+		kryo.register(DiscoverHost.class, fieldSerializer);
+		kryo.register(Ping.class, fieldSerializer);
+
+		initialize(kryo, bufferSize);
+
 		try {
 			selector = Selector.open();
 		} catch (IOException ex) {
@@ -59,6 +72,9 @@ public class Client extends Connection implements EndPoint {
 		}
 	}
 
+	/**
+	 * Gets the Kryo instance that will be used to serialize and deserialize objects.
+	 */
 	public Kryo getKryo () {
 		return kryo;
 	}
@@ -90,9 +106,9 @@ public class Client extends Connection implements EndPoint {
 	/**
 	 * Opens a TCP and UDP client. Blocks until the connection is complete or the timeout is reached.
 	 * <p>
-	 * Because the framework must perform some minimal communication before the connection is considered successful, a separate
-	 * thread must be calling {@link #update(int)} during the connection process.
-	 * @throws IOException if the server could not be opened or connecting times out.
+	 * Because the framework must perform some minimal communication before the connection is considered successful,
+	 * {@link #update(int)} must be called on a separate thread during the connection process.
+	 * @throws IOException if the client could not be opened or connecting times out.
 	 */
 	public void connect (int timeout, InetAddress host, int tcpPort, int udpPort) throws IOException {
 		if (host == null) throw new IllegalArgumentException("host cannot be null.");
@@ -144,8 +160,7 @@ public class Client extends Connection implements EndPoint {
 	}
 
 	/**
-	 * Reads or writes any pending data for this client. This method will block while the client is being opened via one of the
-	 * connect methods.
+	 * Reads or writes any pending data for this client.
 	 * @param timeout Wait for up to the specified milliseconds for data to be ready to process. May be zero to return immediately
 	 *           if there is no data to process.
 	 */
@@ -255,6 +270,7 @@ public class Client extends Connection implements EndPoint {
 	}
 
 	public void stop () {
+		if (shutdown) return;
 		close();
 		if (TRACE) trace("Client thread stopping.");
 		shutdown = true;
