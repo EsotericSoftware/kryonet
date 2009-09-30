@@ -256,7 +256,7 @@ public class Client extends Connection implements EndPoint {
 		}
 		if (TRACE) trace("kryonet", "Client thread stopped.");
 
-		// If the connection was closed and the update thread shutdown, select one last time to complete closing the socket.
+		// If the client was closed and the update thread shutdown, select one last time to complete closing the socket.
 		try {
 			selector.selectNow();
 		} catch (IOException ignored) {
