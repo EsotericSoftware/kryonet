@@ -1,0 +1,8 @@
+
+<project>
+	<id>kryonet</id>
+	<name>KryoNet</name>
+	<dependencies>
+		<dependency>../kryo</dependency>
+	</dependencies>
+</project>
