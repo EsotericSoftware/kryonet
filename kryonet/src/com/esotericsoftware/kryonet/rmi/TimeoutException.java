@@ -4,7 +4,7 @@ package com.esotericsoftware.kryonet.rmi;
 /**
  * Thrown when a method with a return value is invoked on a remote object and the response is not received with the
  * {@link RemoteObject#setResponseTimeout(int) response timeout}.
- * @see ObjectSpace#getRemoteObject(com.esotericsoftware.ninja.Connection, short, Class...)
+ * @see ObjectSpace#getRemoteObject(com.esotericsoftware.kryonet.Connection, short, Class...)
  * @author Nathan Sweet <misc@n4te.com>
  */
 public class TimeoutException extends RuntimeException {

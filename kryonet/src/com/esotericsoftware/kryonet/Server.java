@@ -18,10 +18,12 @@ import java.util.Set;
 
 import com.esotericsoftware.kryonet.FrameworkMessage.DiscoverHost;
 import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
+import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterTCP;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
+import com.esotericsoftware.kryo.serialize.FieldSerializer;
 import com.esotericsoftware.kryo.util.ShortHashMap;
 
 /**
@@ -29,7 +31,7 @@ import com.esotericsoftware.kryo.util.ShortHashMap;
  * @author Nathan Sweet <misc@n4te.com>
  */
 public class Server implements EndPoint {
-	private final Kryo kryo = KryoNet.newKryo();
+	private final Kryo kryo;
 	private int bufferSize;
 	private Selector selector;
 	private ServerSocketChannel serverChannel;
@@ -76,6 +78,15 @@ public class Server implements EndPoint {
 	 */
 	public Server (int bufferSize) {
 		this.bufferSize = bufferSize;
+
+		kryo = new Kryo();
+		FieldSerializer fieldSerializer = new FieldSerializer(kryo);
+		kryo.register(RegisterTCP.class, fieldSerializer);
+		kryo.register(RegisterUDP.class, fieldSerializer);
+		kryo.register(KeepAlive.class, fieldSerializer);
+		kryo.register(DiscoverHost.class, fieldSerializer);
+		kryo.register(Ping.class, fieldSerializer);
+
 		try {
 			selector = Selector.open();
 		} catch (IOException ex) {
@@ -83,6 +94,9 @@ public class Server implements EndPoint {
 		}
 	}
 
+	/**
+	 * Gets the Kryo instance that will be used to serialize and deserialize objects.
+	 */
 	public Kryo getKryo () {
 		return kryo;
 	}
@@ -124,14 +138,13 @@ public class Server implements EndPoint {
 	}
 
 	/**
-	 * Accepts any new connections and reads or writes any pending data for the current connections. This method will block while
-	 * the server is being opened via one of the the bind methods.
+	 * Accepts any new connections and reads or writes any pending data for the current connections.
 	 * @param timeout Wait for up to the specified milliseconds for a connection to be ready to process. May be zero to return
 	 *           immediately if there are no connections to process.
 	 */
 	public void update (int timeout) throws IOException {
 		updateThread = Thread.currentThread();
-		synchronized (updateLock) { // Causes blocking while the selector is used to establish a new connection.
+		synchronized (updateLock) { // Causes blocking while the selector is used to bind the server connection.
 		}
 		if (timeout > 0) {
 			selector.select(timeout);
@@ -306,6 +319,7 @@ public class Server implements EndPoint {
 	}
 
 	public void stop () {
+		if (shutdown) return;
 		close();
 		if (TRACE) trace("Server thread stopping.");
 		shutdown = true;
@@ -440,11 +454,11 @@ public class Server implements EndPoint {
 			int n = listeners.length;
 			Listener[] newListeners = new Listener[n - 1];
 			for (int i = 0, ii = 0; i < n; i++) {
-				if (listener == listeners[i]) continue;
+				Listener copyListener = listeners[i];
+				if (listener == copyListener) continue;
 				if (ii == n - 1) return;
-				newListeners[ii++] = listener;
+				newListeners[ii++] = copyListener;
 			}
-			System.arraycopy(listeners, 0, newListeners, 1, n);
 			this.listeners = newListeners;
 		}
 		if (TRACE) trace("Server listener removed: " + listener.getClass().getName());
@@ -455,7 +469,7 @@ public class Server implements EndPoint {
 	 */
 	public void close () {
 		Connection[] connections = this.connections;
-		if (INFO && connections.length > 0) info("Closing server...");
+		if (INFO && connections.length > 0) info("Closing server connections...");
 		for (int i = 0, n = connections.length; i < n; i++)
 			connections[i].close();
 		connections = new Connection[0];

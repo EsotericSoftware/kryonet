@@ -15,9 +15,8 @@ import com.esotericsoftware.kryo.SerializationException;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 
 /**
- * Represents a TCP and optionally a UDP connection between a {@link Client} and a {@link Server}. Internally manages TCP/UDP
- * connections and hides the differences between the two protocols. If either the TCP or optional UDP connection is closed or
- * errors, both connections are closed.
+ * Represents a TCP and optionally a UDP connection between a {@link Client} and a {@link Server}. If either underlying connection
+ * is closed or errors, both connections are closed.
  * @author Nathan Sweet <misc@n4te.com>
  */
 public class Connection {
@@ -35,9 +34,6 @@ public class Connection {
 	protected Connection () {
 	}
 
-	/**
-	 * @param bufferSize The maximum size an object may be after serialization.
-	 */
 	void initialize (Kryo kryo, int bufferSize) {
 		tcp = new TcpConnection(kryo, bufferSize);
 	}
@@ -51,7 +47,7 @@ public class Connection {
 
 	/**
 	 * Sends the object over the network using TCP.
-	 * @see Ninja#register(Class, com.esotericsoftware.ninja.serialize.Serializer)
+	 * @see Kryo#register(Class, com.esotericsoftware.kryo.Serializer)
 	 */
 	public void sendTCP (Object object) {
 		if (object == null) throw new IllegalArgumentException("object cannot be null.");
@@ -83,7 +79,7 @@ public class Connection {
 
 	/**
 	 * Sends the object over the network using UDP.
-	 * @see Ninja#register(Class, com.esotericsoftware.ninja.serialize.Serializer)
+	 * @see Kryo#register(Class, com.esotericsoftware.kryo.Serializer)
 	 * @throws IllegalStateException if this connection was not opened with both TCP and UDP.
 	 */
 	public void sendUDP (Object object) {
@@ -147,7 +143,8 @@ public class Connection {
 	}
 
 	/**
-	 * Returns the last calculated return trip time, or -1 if {@link #updateReturnTripTime()} has never been called.
+	 * Returns the last calculated return trip time, or -1 if {@link #updateReturnTripTime()} has never been called or the
+	 * {@link FrameworkMessage.Ping} response has not yet been received.
 	 */
 	public int getReturnTripTime () {
 		return returnTripTime;
@@ -195,11 +192,11 @@ public class Connection {
 			int n = listeners.length;
 			Listener[] newListeners = new Listener[n - 1];
 			for (int i = 0, ii = 0; i < n; i++) {
-				if (listener == listeners[i]) continue;
+				Listener copyListener = listeners[i];
+				if (listener == copyListener) continue;
 				if (ii == n - 1) return;
-				newListeners[ii++] = listener;
+				newListeners[ii++] = copyListener;
 			}
-			System.arraycopy(listeners, 0, newListeners, 1, n);
 			this.listeners = newListeners;
 		}
 		if (TRACE) trace("Connection listener removed: " + listener.getClass().getName());
@@ -277,7 +274,8 @@ public class Connection {
 
 	/**
 	 * Sets the friendly name of this connection. This is returned by {@link #toString()} and is useful for providing application
-	 * specific identifying information in the logging. May be null for the default name of "Connection X".
+	 * specific identifying information in the logging. May be null for the default name of "Connection X", where X is the
+	 * connection ID.
 	 */
 	public void setName (String name) {
 		this.name = name;
