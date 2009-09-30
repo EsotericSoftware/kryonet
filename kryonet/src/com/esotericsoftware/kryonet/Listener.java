@@ -1,6 +1,5 @@
+
 package com.esotericsoftware.kryonet;
-
-
 
 import static com.esotericsoftware.minlog.Log.*;
 
@@ -40,12 +39,12 @@ public class Listener {
 				try {
 					method = getClass().getMethod("received", new Class[] {Connection.class, type});
 				} catch (SecurityException ex) {
-					if (ERROR) error("Unable to access method: received(Connection, " + type.getName() + ")", ex);
+					if (ERROR) error("kryonet", "Unable to access method: received(Connection, " + type.getName() + ")", ex);
 					return;
 				} catch (NoSuchMethodException ex) {
 					if (DEBUG)
-						debug("Unable to find listener method: " + getClass().getName() + "#received(Connection, " + type.getName()
-							+ ")");
+						debug("kryonet", "Unable to find listener method: " + getClass().getName() + "#received(Connection, "
+							+ type.getName() + ")");
 					return;
 				} finally {
 					classToMethod.put(type, method);

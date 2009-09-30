@@ -53,7 +53,7 @@ public class ObjectSpace {
 			InvokeMethod invokeMethod = (InvokeMethod)object;
 			Object target = idToObject.get(invokeMethod.objectID);
 			if (target == null) {
-				Log.warn("Ignoring remote invocation request for unknown object ID: " + invokeMethod.objectID);
+				Log.warn("kryonet", "Ignoring remote invocation request for unknown object ID: " + invokeMethod.objectID);
 				return;
 			}
 			invoke(connection, target, invokeMethod);
@@ -452,7 +452,7 @@ public class ObjectSpace {
 					}
 				}
 
-				if (WARN) warn("Unknown object ID " + objectID + " for connection: " + connection);
+				if (WARN) warn("kryonet", "Unknown object ID " + objectID + " for connection: " + connection);
 				return null;
 			}
 		});

@@ -54,22 +54,22 @@ public class Connection {
 		try {
 			int length = tcp.send(this, object);
 			if (length == 0) {
-				if (TRACE) trace(this + " TCP had nothing to send.");
+				if (TRACE) trace("kryonet", this + " TCP had nothing to send.");
 				return;
 			}
 			if (DEBUG) {
 				if (!(object instanceof FrameworkMessage)) {
-					debug(this + " sent TCP: " + object + " (" + length + ")");
+					debug("kryonet", this + " sent TCP: " + object + " (" + length + ")");
 				} else if (TRACE) {
-					trace(this + " sent TCP: " + object + " (" + length + ")");
+					trace("kryonet", this + " sent TCP: " + object + " (" + length + ")");
 				}
 			}
 		} catch (IOException ex) {
 			if (DEBUG) {
 				if (id != -1)
-					debug("Unable to send TCP with connection: " + this, ex);
+					debug("kryonet", "Unable to send TCP with connection: " + this, ex);
 				else
-					debug("Unable to send TCP.", ex);
+					debug("kryonet", "Unable to send TCP.", ex);
 			}
 		} catch (SerializationException ex) {
 			close();
@@ -94,29 +94,29 @@ public class Connection {
 		try {
 			int length = udp.send(this, object, address);
 			if (length == 0) {
-				if (TRACE) trace(this + " UDP had nothing to send.");
+				if (TRACE) trace("kryonet", this + " UDP had nothing to send.");
 				return;
 			}
 			if (DEBUG) {
 				if (length != -1) {
 					if (!(object instanceof FrameworkMessage)) {
-						debug(this + " sent UDP: " + object + " (" + length + ")");
+						debug("kryonet", this + " sent UDP: " + object + " (" + length + ")");
 					} else if (TRACE) {
-						trace(this + " sent UDP: " + object + " (" + length + ")");
+						trace("kryonet", this + " sent UDP: " + object + " (" + length + ")");
 					}
 				} else
-					debug(this + " was unable to send, UDP socket buffer full.");
+					debug("kryonet", this + " was unable to send, UDP socket buffer full.");
 			}
 		} catch (SerializationException ex) {
-			if (ERROR) error("Error sending UDP with connection: " + this, ex);
+			if (ERROR) error("kryonet", "Error sending UDP with connection: " + this, ex);
 			close();
 			throw ex;
 		} catch (IOException ex) {
 			if (DEBUG) {
 				if (id != -1)
-					debug("Unable to send UDP with connection: " + this, ex);
+					debug("kryonet", "Unable to send UDP with connection: " + this, ex);
 				else
-					debug("Unable to send UDP.", ex);
+					debug("kryonet", "Unable to send UDP.", ex);
 			}
 		}
 	}
@@ -126,7 +126,7 @@ public class Connection {
 		if (udp != null && udp.connectedAddress != null) udp.close();
 		if (id != -1) {
 			notifyDisconnected();
-			if (INFO) info(this + " disconnected.");
+			if (INFO) info("kryonet", this + " disconnected.");
 		}
 		id = -1;
 	}
@@ -182,7 +182,7 @@ public class Connection {
 			System.arraycopy(listeners, 0, newListeners, 1, n);
 			this.listeners = newListeners;
 		}
-		if (TRACE) trace("Connection listener added: " + listener.getClass().getName());
+		if (TRACE) trace("kryonet", "Connection listener added: " + listener.getClass().getName());
 	}
 
 	public void removeListener (Listener listener) {
@@ -199,7 +199,7 @@ public class Connection {
 			}
 			this.listeners = newListeners;
 		}
-		if (TRACE) trace("Connection listener removed: " + listener.getClass().getName());
+		if (TRACE) trace("kryonet", "Connection listener removed: " + listener.getClass().getName());
 	}
 
 	void notifyConnected () {
@@ -209,7 +209,7 @@ public class Connection {
 				Socket socket = tcp.socketChannel.socket();
 				if (socket != null) {
 					InetSocketAddress remoteSocketAddress = (InetSocketAddress)socket.getRemoteSocketAddress();
-					if (remoteSocketAddress != null) info(this + " connected: " + remoteSocketAddress.getAddress());
+					if (remoteSocketAddress != null) info("kryonet", this + " connected: " + remoteSocketAddress.getAddress());
 				}
 			}
 		}
@@ -230,7 +230,7 @@ public class Connection {
 			if (ping.isReply) {
 				if (ping.time == lastPingTime) {
 					returnTripTime = (int)(System.currentTimeMillis() - ping.time);
-					if (TRACE) trace(this + " return trip time: " + returnTripTime);
+					if (TRACE) trace("kryonet", this + " return trip time: " + returnTripTime);
 				}
 			} else {
 				ping.isReply = true;

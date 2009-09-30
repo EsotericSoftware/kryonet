@@ -5,13 +5,8 @@ import static com.esotericsoftware.minlog.Log.LEVEL_DEBUG;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryonet.Connection;
-import com.esotericsoftware.kryonet.Listener;
-import com.esotericsoftware.kryonet.Server;
 import com.esotericsoftware.minlog.Log;
 
 public class PingPongTest extends KryoNetTestCase {

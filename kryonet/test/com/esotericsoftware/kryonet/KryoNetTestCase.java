@@ -28,7 +28,7 @@ abstract public class KryoNetTestCase extends TestCase {
 	protected void setUp () throws Exception {
 		System.out.println("---- " + getClass().getSimpleName());
 	}
-	
+
 	public void startEndPoint (EndPoint endPoint) {
 		endPoints.add(endPoint);
 		Thread thread = new Thread(endPoint);

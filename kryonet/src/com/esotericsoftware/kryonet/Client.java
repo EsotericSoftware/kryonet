@@ -192,7 +192,7 @@ public class Client extends Connection implements EndPoint {
 										udpRegistrationLock.notifyAll();
 									}
 									if (DEBUG)
-										debug("Port " + udp.datagramChannel.socket().getLocalPort() + "/UDP connected to: "
+										debug("kryonet", "Port " + udp.datagramChannel.socket().getLocalPort() + "/UDP connected to: "
 											+ udp.connectedAddress);
 								}
 								if (id != -1 && (udp == null || udpRegistered)) notifyConnected();
@@ -200,9 +200,9 @@ public class Client extends Connection implements EndPoint {
 							}
 							if (DEBUG) {
 								if (!(object instanceof FrameworkMessage)) {
-									debug(this + " received TCP: " + object);
+									debug("kryonet", this + " received TCP: " + object);
 								} else if (TRACE) {
-									trace(this + " received TCP: " + object);
+									trace("kryonet", this + " received TCP: " + object);
 								}
 							}
 							notifyReceived(object);
@@ -211,7 +211,7 @@ public class Client extends Connection implements EndPoint {
 						if (udp.readFromAddress() == null) continue;
 						Object object = udp.readObject(this);
 						if (object == null) continue;
-						if (DEBUG) debug(this + " received UDP: " + object);
+						if (DEBUG) debug("kryonet", this + " received UDP: " + object);
 						notifyReceived(object);
 					}
 				}
@@ -225,7 +225,7 @@ public class Client extends Connection implements EndPoint {
 	}
 
 	public void run () {
-		if (TRACE) trace("Client thread started.");
+		if (TRACE) trace("kryonet", "Client thread started.");
 		shutdown = false;
 		while (!shutdown) {
 			try {
@@ -233,28 +233,28 @@ public class Client extends Connection implements EndPoint {
 			} catch (IOException ex) {
 				if (TRACE) {
 					if (id != -1)
-						trace("Unable to update connection: " + this, ex);
+						trace("kryonet", "Unable to update connection: " + this, ex);
 					else
-						trace("Unable to update connection.", ex);
+						trace("kryonet", "Unable to update connection.", ex);
 				} else if (DEBUG) {
 					if (id != -1)
-						debug(this + " update: " + ex.getMessage());
+						debug("kryonet", this + " update: " + ex.getMessage());
 					else
-						debug("Unable to update connection: " + ex.getMessage());
+						debug("kryonet", "Unable to update connection: " + ex.getMessage());
 				}
 				close();
 			} catch (SerializationException ex) {
 				if (ERROR) {
 					if (id != -1)
-						error("Error updating connection: " + this, ex);
+						error("kryonet", "Error updating connection: " + this, ex);
 					else
-						error("Error updating connection.", ex);
+						error("kryonet", "Error updating connection.", ex);
 				}
 				close();
 				throw ex;
 			}
 		}
-		if (TRACE) trace("Client thread stopped.");
+		if (TRACE) trace("kryonet", "Client thread stopped.");
 
 		// If the connection was closed and the update thread shutdown, select one last time to complete closing the socket.
 		try {
@@ -272,7 +272,7 @@ public class Client extends Connection implements EndPoint {
 	public void stop () {
 		if (shutdown) return;
 		close();
-		if (TRACE) trace("Client thread stopping.");
+		if (TRACE) trace("kryonet", "Client thread stopping.");
 		shutdown = true;
 		selector.wakeup();
 	}
@@ -284,12 +284,12 @@ public class Client extends Connection implements EndPoint {
 
 	public void addListener (Listener listener) {
 		super.addListener(listener);
-		if (TRACE) trace("Client listener added.");
+		if (TRACE) trace("kryonet", "Client listener added.");
 	}
 
 	public void removeListener (Listener listener) {
 		super.removeListener(listener);
-		if (TRACE) trace("Client listener removed.");
+		if (TRACE) trace("kryonet", "Client listener removed.");
 	}
 
 	/**
@@ -332,23 +332,23 @@ public class Client extends Connection implements EndPoint {
 						socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
 					}
 				}
-				if (DEBUG) debug("Broadcasted host discovery on port: " + udpPort);
+				if (DEBUG) debug("kryonet", "Broadcasted host discovery on port: " + udpPort);
 
 				socket.setSoTimeout(timeoutMillis);
 				DatagramPacket packet = new DatagramPacket(new byte[0], 0);
 				try {
 					socket.receive(packet);
 				} catch (SocketTimeoutException ex) {
-					if (INFO) debug("Host discovery timed out.");
+					if (INFO) debug("kryonet", "Host discovery timed out.");
 					return null;
 				}
-				if (INFO) debug("Discovered server: " + packet.getAddress());
+				if (INFO) debug("kryonet", "Discovered server: " + packet.getAddress());
 				return packet.getAddress();
 			} finally {
 				socket.close();
 			}
 		} catch (IOException ex) {
-			if (ERROR) error("Host discovery failed.", ex);
+			if (ERROR) error("kryonet", "Host discovery failed.", ex);
 			return null;
 		}
 	}
