@@ -95,7 +95,7 @@ public class ObjectSpace {
 	 * Registers an object to allow the remote end of connections to access it using the specified ID.
 	 * @see #getRemoteObject(Connection, short, Class...)
 	 */
-	public void register (short objectID, Object object) {
+	public void register (Object object, short objectID) {
 		if (object == null) throw new IllegalArgumentException("object cannot be null.");
 		idToObject.put(objectID, object);
 	}
