@@ -23,7 +23,7 @@ public interface EndPoint extends Runnable {
 	/**
 	 * Starts a new thread that calls {@link #run()}.
 	 */
-	public void start (boolean isDaemon);
+	public void start ();
 
 	/**
 	 * Closes this end point and causes {@link #run()} to return.

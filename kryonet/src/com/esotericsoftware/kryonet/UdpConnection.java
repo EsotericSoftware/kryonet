@@ -133,7 +133,7 @@ class UdpConnection {
 		}
 	}
 
-	public boolean needsKeepAlive () {
-		return connectedAddress != null && keepAliveTime > 0 && System.currentTimeMillis() - lastCommunicationTime > keepAliveTime;
+	public boolean needsKeepAlive (long time) {
+		return connectedAddress != null && keepAliveTime > 0 && time - lastCommunicationTime > keepAliveTime;
 	}
 }

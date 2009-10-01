@@ -4,6 +4,7 @@ package com.esotericsoftware.kryonet;
 import static com.esotericsoftware.minlog.Log.*;
 
 import java.io.IOException;
+import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
@@ -20,6 +21,8 @@ import com.esotericsoftware.kryo.serialize.IntSerializer;
  * @author Nathan Sweet <misc@n4te.com>
  */
 class TcpConnection {
+	static private final int IPTOS_LOWDELAY = 0x10;
+
 	SocketChannel socketChannel;
 	int keepAliveTime = 59000;
 	final ByteBuffer readBuffer, writeBuffer;
@@ -61,9 +64,10 @@ class TcpConnection {
 		close();
 		try {
 			SocketChannel socketChannel = selector.provider().openSocketChannel();
-			socketChannel.socket().setTcpNoDelay(true);
-			socketChannel.socket().bind(null);
-			socketChannel.socket().connect(remoteAddress, timeout); // Connect using blocking mode for simplicity.
+			Socket socket = socketChannel.socket();
+			socket.setTcpNoDelay(true);
+			socket.setTrafficClass(IPTOS_LOWDELAY);
+			socket.connect(remoteAddress, timeout); // Connect using blocking mode for simplicity.
 			socketChannel.configureBlocking(false);
 			this.socketChannel = socketChannel;
 
@@ -204,7 +208,7 @@ class TcpConnection {
 		}
 	}
 
-	public boolean needsKeepAlive () {
-		return socketChannel != null && keepAliveTime > 0 && System.currentTimeMillis() - lastCommunicationTime > keepAliveTime;
+	public boolean needsKeepAlive (long time) {
+		return socketChannel != null && keepAliveTime > 0 && time - lastCommunicationTime > keepAliveTime;
 	}
 }

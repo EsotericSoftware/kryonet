@@ -318,10 +318,8 @@ public class Server implements EndPoint {
 		}
 	}
 
-	public void start (boolean isDaemon) {
-		Thread thread = new Thread(this, "Server");
-		thread.setDaemon(isDaemon);
-		thread.start();
+	public void start () {
+		new Thread(this, "Server").start();
 	}
 
 	public void stop () {

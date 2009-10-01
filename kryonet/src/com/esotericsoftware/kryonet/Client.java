@@ -130,7 +130,10 @@ public class Client extends Connection implements EndPoint {
 				} catch (InterruptedException ignored) {
 				}
 			}
-			if (id == -1) throw new SocketTimeoutException("Connected, but timed out during TCP registration.");
+			if (id == -1) {
+				throw new SocketTimeoutException("Connected, but timed out during TCP registration.\n"
+					+ "Note: Client#update must be called in a separate thread during connect.");
+			}
 
 			if (udpPort != -1) {
 				InetSocketAddress udpAddress = new InetSocketAddress(host, udpPort);
@@ -220,8 +223,11 @@ public class Client extends Connection implements EndPoint {
 				// Connection is closed.
 			}
 		}
-		if (id != -1 && tcp.needsKeepAlive()) sendTCP(FrameworkMessage.keepAlive);
-		if (udp != null && udpRegistered && udp.needsKeepAlive()) sendUDP(FrameworkMessage.keepAlive);
+		if (id != -1) {
+			long time = System.currentTimeMillis();
+			if (tcp.needsKeepAlive(time)) sendTCP(FrameworkMessage.keepAlive);
+			if (udp != null && udpRegistered && udp.needsKeepAlive(time)) sendUDP(FrameworkMessage.keepAlive);
+		}
 	}
 
 	public void run () {
@@ -263,10 +269,8 @@ public class Client extends Connection implements EndPoint {
 		}
 	}
 
-	public void start (boolean isDaemon) {
-		Thread thread = new Thread(this, "Client");
-		thread.setDaemon(isDaemon);
-		thread.start();
+	public void start () {
+		new Thread(this, "Client").start();
 	}
 
 	public void stop () {
