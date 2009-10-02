@@ -15,10 +15,6 @@ public interface FrameworkMessage {
 	 */
 	static public class RegisterTCP implements FrameworkMessage {
 		public short connectionID;
-
-		public String toString () {
-			return "Ninja.RegisterTCP";
-		}
 	}
 
 	/**
@@ -26,28 +22,18 @@ public interface FrameworkMessage {
 	 */
 	static public class RegisterUDP implements FrameworkMessage {
 		public short connectionID;
-
-		public String toString () {
-			return "Ninja.RegisterUDP";
-		}
 	}
 
 	/**
 	 * Internal message to keep connections alive.
 	 */
 	static public class KeepAlive implements FrameworkMessage {
-		public String toString () {
-			return "Ninja.KeepAlive";
-		}
 	}
 
 	/**
 	 * Internal message to discover running servers.
 	 */
 	static public class DiscoverHost implements FrameworkMessage {
-		public String toString () {
-			return "Ninja.DiscoverHost";
-		}
 	}
 
 	/**
@@ -56,9 +42,5 @@ public interface FrameworkMessage {
 	static public class Ping implements FrameworkMessage {
 		long time;
 		public boolean isReply;
-
-		public String toString () {
-			return "Ninja.Ping";
-		}
 	}
 }

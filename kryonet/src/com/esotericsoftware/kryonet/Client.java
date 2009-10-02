@@ -72,9 +72,6 @@ public class Client extends Connection implements EndPoint {
 		}
 	}
 
-	/**
-	 * Gets the Kryo instance that will be used to serialize and deserialize objects.
-	 */
 	public Kryo getKryo () {
 		return kryo;
 	}
@@ -202,10 +199,11 @@ public class Client extends Connection implements EndPoint {
 								continue;
 							}
 							if (DEBUG) {
+								String objectString = object == null ? "null" : object.getClass().getSimpleName();
 								if (!(object instanceof FrameworkMessage)) {
-									debug("kryonet", this + " received TCP: " + object);
+									debug("kryonet", this + " received TCP: " + objectString);
 								} else if (TRACE) {
-									trace("kryonet", this + " received TCP: " + object);
+									trace("kryonet", this + " received TCP: " + objectString);
 								}
 							}
 							notifyReceived(object);
@@ -214,7 +212,10 @@ public class Client extends Connection implements EndPoint {
 						if (udp.readFromAddress() == null) continue;
 						Object object = udp.readObject(this);
 						if (object == null) continue;
-						if (DEBUG) debug("kryonet", this + " received UDP: " + object);
+						if (DEBUG) {
+							String objectString = object == null ? "null" : object.getClass().getSimpleName();
+							debug("kryonet", this + " received UDP: " + objectString);
+						}
 						notifyReceived(object);
 					}
 				}

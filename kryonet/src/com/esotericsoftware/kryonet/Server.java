@@ -93,9 +93,6 @@ public class Server implements EndPoint {
 		}
 	}
 
-	/**
-	 * Gets the Kryo instance that will be used to serialize and deserialize objects.
-	 */
 	public Kryo getKryo () {
 		return kryo;
 	}
@@ -167,10 +164,11 @@ public class Server implements EndPoint {
 								Object object = keyConnection.tcp.readObject(keyConnection);
 								if (object == null) break;
 								if (DEBUG) {
+									String objectString = object == null ? "null" : object.getClass().getSimpleName();
 									if (!(object instanceof FrameworkMessage)) {
-										debug("kryonet", keyConnection + " received TCP: " + object);
+										debug("kryonet", keyConnection + " received TCP: " + objectString);
 									} else if (TRACE) {
-										trace("kryonet", keyConnection + " received TCP: " + object);
+										trace("kryonet", keyConnection + " received TCP: " + objectString);
 									}
 								}
 								keyConnection.notifyReceived(object);
@@ -283,10 +281,11 @@ public class Server implements EndPoint {
 
 				if (fromConnection != null) {
 					if (DEBUG) {
+						String objectString = object == null ? "null" : object.getClass().getSimpleName();
 						if (object instanceof KeepAlive) {
-							if (TRACE) trace("kryonet", fromConnection + " received UDP: " + object);
+							if (TRACE) trace("kryonet", fromConnection + " received UDP: " + objectString);
 						} else
-							debug("kryonet", fromConnection + " received UDP: " + object);
+							debug("kryonet", fromConnection + " received UDP: " + objectString);
 					}
 					fromConnection.notifyReceived(object);
 					continue;
@@ -331,7 +330,7 @@ public class Server implements EndPoint {
 	}
 
 	private void acceptOperation (SocketChannel socketChannel) {
-		Connection connection = newConnection(bufferSize);
+		Connection connection = newConnection();
 		connection.initialize(kryo, bufferSize);
 		connection.endPoint = this;
 		if (udp != null) connection.udp = udp;
@@ -364,7 +363,7 @@ public class Server implements EndPoint {
 	 * Allows the connections used by the server to be subclassed. This can be useful for storage per connection without an
 	 * additional lookup.
 	 */
-	protected Connection newConnection (int bufferSize) {
+	protected Connection newConnection () {
 		return new Connection();
 	}
 
@@ -496,5 +495,12 @@ public class Server implements EndPoint {
 
 	public Thread getUpdateThread () {
 		return updateThread;
+	}
+
+	/**
+	 * Returns the current connections. The array returned should not be modified.
+	 */
+	public Connection[] getConnections () {
+		return connections;
 	}
 }
