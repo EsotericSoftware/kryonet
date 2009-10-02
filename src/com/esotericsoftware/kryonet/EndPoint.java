@@ -3,11 +3,18 @@ package com.esotericsoftware.kryonet;
 
 import java.io.IOException;
 
+import com.esotericsoftware.kryo.Kryo;
+
 /**
  * Represents the local end point of a connection.
  * @author Nathan Sweet <misc@n4te.com>
  */
 public interface EndPoint extends Runnable {
+	/**
+	 * Gets the Kryo instance that will be used to serialize and deserialize objects.
+	 */
+	public Kryo getKryo ();
+
 	/**
 	 * If the listener already exists, it is not added again.
 	 */

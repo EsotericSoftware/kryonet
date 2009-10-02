@@ -58,10 +58,11 @@ public class Connection {
 				return;
 			}
 			if (DEBUG) {
+				String objectString = object == null ? "null" : object.getClass().getSimpleName();
 				if (!(object instanceof FrameworkMessage)) {
-					debug("kryonet", this + " sent TCP: " + object + " (" + length + ")");
+					debug("kryonet", this + " sent TCP: " + objectString + " (" + length + ")");
 				} else if (TRACE) {
-					trace("kryonet", this + " sent TCP: " + object + " (" + length + ")");
+					trace("kryonet", this + " sent TCP: " + objectString + " (" + length + ")");
 				}
 			}
 		} catch (IOException ex) {
@@ -99,10 +100,11 @@ public class Connection {
 			}
 			if (DEBUG) {
 				if (length != -1) {
+					String objectString = object == null ? "null" : object.getClass().getSimpleName();
 					if (!(object instanceof FrameworkMessage)) {
-						debug("kryonet", this + " sent UDP: " + object + " (" + length + ")");
+						debug("kryonet", this + " sent UDP: " + objectString + " (" + length + ")");
 					} else if (TRACE) {
-						trace("kryonet", this + " sent UDP: " + object + " (" + length + ")");
+						trace("kryonet", this + " sent UDP: " + objectString + " (" + length + ")");
 					}
 				} else
 					debug("kryonet", this + " was unable to send, UDP socket buffer full.");
