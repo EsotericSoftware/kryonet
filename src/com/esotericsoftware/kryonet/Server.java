@@ -18,7 +18,7 @@ import java.util.Set;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
 import com.esotericsoftware.kryo.serialize.FieldSerializer;
-import com.esotericsoftware.kryo.util.ShortHashMap;
+import com.esotericsoftware.kryo.util.IntHashMap;
 import com.esotericsoftware.kryonet.FrameworkMessage.DiscoverHost;
 import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
@@ -36,10 +36,10 @@ public class Server implements EndPoint {
 	private ServerSocketChannel serverChannel;
 	private UdpConnection udp;
 	private Connection[] connections = {};
-	private ShortHashMap<Connection> pendingConnections = new ShortHashMap();
+	private IntHashMap<Connection> pendingConnections = new IntHashMap();
 	Listener[] listeners = {};
 	private Object listenerLock = new Object();
-	private short nextConnectionID = 1;
+	private int nextConnectionID = 1;
 	private volatile boolean shutdown;
 	private Object updateLock = new Object();
 	private Thread updateThread;
@@ -256,7 +256,7 @@ public class Server implements EndPoint {
 				if (object instanceof FrameworkMessage) {
 					if (object instanceof RegisterUDP) {
 						// Store the fromAddress on the connection and reply over TCP with a RegisterUDP to indicate success.
-						short fromConnectionID = ((RegisterUDP)object).connectionID;
+						int fromConnectionID = ((RegisterUDP)object).connectionID;
 						Connection connection = pendingConnections.remove(fromConnectionID);
 						if (connection != null) {
 							if (connection.udpRemoteAddress != null) continue outer;
@@ -338,7 +338,7 @@ public class Server implements EndPoint {
 			SelectionKey selectionKey = connection.tcp.accept(selector, socketChannel);
 			selectionKey.attach(connection);
 
-			short id = nextConnectionID++;
+			int id = nextConnectionID++;
 			if (nextConnectionID == -1) nextConnectionID = 1;
 			connection.id = id;
 			connection.addListener(dispatchListener);
@@ -390,7 +390,7 @@ public class Server implements EndPoint {
 		}
 	}
 
-	public void sendToAllExceptTCP (short connectionID, Object object) {
+	public void sendToAllExceptTCP (int connectionID, Object object) {
 		Connection[] connections = this.connections;
 		for (int i = 0, n = connections.length; i < n; i++) {
 			Connection connection = connections[i];
@@ -398,7 +398,7 @@ public class Server implements EndPoint {
 		}
 	}
 
-	public void sendToTCP (short connectionID, Object object) {
+	public void sendToTCP (int connectionID, Object object) {
 		Connection[] connections = this.connections;
 		for (int i = 0, n = connections.length; i < n; i++) {
 			Connection connection = connections[i];
@@ -417,7 +417,7 @@ public class Server implements EndPoint {
 		}
 	}
 
-	public void sendToAllExceptUDP (short connectionID, Object object) {
+	public void sendToAllExceptUDP (int connectionID, Object object) {
 		Connection[] connections = this.connections;
 		for (int i = 0, n = connections.length; i < n; i++) {
 			Connection connection = connections[i];
@@ -425,7 +425,7 @@ public class Server implements EndPoint {
 		}
 	}
 
-	public void sendToUDP (short connectionID, Object object) {
+	public void sendToUDP (int connectionID, Object object) {
 		Connection[] connections = this.connections;
 		for (int i = 0, n = connections.length; i < n; i++) {
 			Connection connection = connections[i];

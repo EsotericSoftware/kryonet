@@ -20,7 +20,7 @@ import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
  * @author Nathan Sweet <misc@n4te.com>
  */
 public class Connection {
-	short id = -1;
+	int id = -1;
 	private String name;
 	EndPoint endPoint;
 	TcpConnection tcp;
@@ -41,7 +41,7 @@ public class Connection {
 	/**
 	 * Returns the server assigned ID. Will be -1 if this connection is not connected.
 	 */
-	public short getID () {
+	public int getID () {
 		return id;
 	}
 
@@ -93,7 +93,7 @@ public class Connection {
 
 		Context context = Kryo.getContext();
 		context.put("connection", this);
-		context.setRemoteEntityID(id);
+		context.put("connectionID", id);
 		try {
 			int length = udp.send(this, object, address);
 			if (length == 0) {

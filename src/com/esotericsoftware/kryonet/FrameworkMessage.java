@@ -6,6 +6,7 @@ import com.esotericsoftware.minlog.Log;
 /**
  * Marker interface to denote that a message is used by the Ninja framework and is generally invisible to the developer. Eg, these
  * messages are only logged at the {@link Log#LEVEL_TRACE} level.
+ * @author Nathan Sweet <misc@n4te.com>
  */
 public interface FrameworkMessage {
 	static final FrameworkMessage.KeepAlive keepAlive = new KeepAlive();
@@ -14,14 +15,14 @@ public interface FrameworkMessage {
 	 * Internal message to give the client the server assigned connection ID.
 	 */
 	static public class RegisterTCP implements FrameworkMessage {
-		public short connectionID;
+		public int connectionID;
 	}
 
 	/**
 	 * Internal message to give the server the client's UDP port.
 	 */
 	static public class RegisterUDP implements FrameworkMessage {
-		public short connectionID;
+		public int connectionID;
 	}
 
 	/**
