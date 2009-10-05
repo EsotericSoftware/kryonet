@@ -21,6 +21,7 @@ import java.util.Set;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
 import com.esotericsoftware.kryo.serialize.FieldSerializer;
+import com.esotericsoftware.kryo.serialize.IntSerializer;
 import com.esotericsoftware.kryo.serialize.ShortSerializer;
 import com.esotericsoftware.kryonet.FrameworkMessage.DiscoverHost;
 import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
@@ -320,9 +321,9 @@ public class Client extends Connection implements EndPoint {
 		try {
 			socket = new DatagramSocket();
 			try {
-				short classID = kryo.getRegisteredClass(DiscoverHost.class).id;
+				int classID = kryo.getRegisteredClass(DiscoverHost.class).id;
 				ByteBuffer dataBuffer = ByteBuffer.allocate(4);
-				ShortSerializer.put(dataBuffer, classID, true);
+				IntSerializer.put(dataBuffer, classID, true);
 				dataBuffer.flip();
 				byte[] data = new byte[dataBuffer.limit()];
 				dataBuffer.get(data);

@@ -19,8 +19,9 @@ import com.esotericsoftware.kryo.CustomSerialization;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.serialize.ArraySerializer;
-import com.esotericsoftware.kryo.serialize.ShortSerializer;
-import com.esotericsoftware.kryo.util.ShortHashMap;
+import com.esotericsoftware.kryo.serialize.FieldSerializer;
+import com.esotericsoftware.kryo.serialize.IntSerializer;
+import com.esotericsoftware.kryo.util.IntHashMap;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.EndPoint;
 import com.esotericsoftware.kryonet.FrameworkMessage;
@@ -36,7 +37,7 @@ public class ObjectSpace {
 	static ObjectSpace[] instances = new ObjectSpace[0];
 	static private final HashMap<Class, Method[]> methodCache = new HashMap();
 
-	final ShortHashMap idToObject = new ShortHashMap();
+	final IntHashMap idToObject = new IntHashMap();
 	Connection[] connections = {};
 	final Object connectionsLock = new Object();
 
@@ -89,9 +90,9 @@ public class ObjectSpace {
 	 * <p>
 	 * If a connection is added to multiple ObjectSpaces, the same object ID should not be used in more than one of those
 	 * ObjectSpaces.
-	 * @see #getRemoteObject(Connection, short, Class...)
+	 * @see #getRemoteObject(Connection, int, Class...)
 	 */
-	public void register (short objectID, Object object) {
+	public void register (int objectID, Object object) {
 		if (object == null) throw new IllegalArgumentException("object cannot be null.");
 		idToObject.put(objectID, object);
 		if (TRACE) trace("kryonet", "Object registered with ObjectSpace as " + objectID + ": " + object);
@@ -183,10 +184,10 @@ public class ObjectSpace {
 	}
 
 	/**
-	 * Identical to {@link #getRemoteObject(Connection, short, Class...)} except returns the object as the specified interface
-	 * type. The returned object still implements {@link RemoteObject}.
+	 * Identical to {@link #getRemoteObject(Connection, int, Class...)} except returns the object as the specified interface type.
+	 * The returned object still implements {@link RemoteObject}.
 	 */
-	static public <T> T getRemoteObject (final Connection connection, short objectID, Class<T> iface) {
+	static public <T> T getRemoteObject (final Connection connection, int objectID, Class<T> iface) {
 		return (T)getRemoteObject(connection, objectID, new Class[] {iface});
 	}
 
@@ -205,7 +206,7 @@ public class ObjectSpace {
 	 * side will have the proxy object replaced with the registered object.
 	 * @see RemoteObject
 	 */
-	static public RemoteObject getRemoteObject (Connection connection, short objectID, Class... ifaces) {
+	static public RemoteObject getRemoteObject (Connection connection, int objectID, Class... ifaces) {
 		if (connection == null) throw new IllegalArgumentException("connection cannot be null.");
 		if (ifaces == null) throw new IllegalArgumentException("ifaces cannot be null.");
 		Class[] temp = new Class[ifaces.length + 1];
@@ -220,7 +221,7 @@ public class ObjectSpace {
 	 */
 	static private class RemoteInvocationHandler implements InvocationHandler {
 		private final Connection connection;
-		final short objectID;
+		final int objectID;
 		private int timeoutMillis = 3000;
 		private boolean nonBlocking, ignoreResponses;
 		private Byte lastResponseID;
@@ -228,7 +229,7 @@ public class ObjectSpace {
 		private byte nextResponseID = 1;
 		private Listener responseListener;
 
-		public RemoteInvocationHandler (Connection connection, final short objectID) {
+		public RemoteInvocationHandler (Connection connection, final int objectID) {
 			super();
 			this.connection = connection;
 			this.objectID = objectID;
@@ -351,17 +352,17 @@ public class ObjectSpace {
 	 * Internal message to invoke methods remotely.
 	 */
 	static public class InvokeMethod implements FrameworkMessage, CustomSerialization {
-		public short objectID;
+		public int objectID;
 		public Method method;
 		public Object[] args;
 		public byte responseID;
 
 		public void writeObjectData (Kryo kryo, ByteBuffer buffer) {
-			ShortSerializer.put(buffer, objectID, true);
+			IntSerializer.put(buffer, objectID, true);
 			buffer.put(responseID);
 
-			short methodClassID = kryo.getRegisteredClass(method.getDeclaringClass()).id;
-			ShortSerializer.put(buffer, methodClassID, true);
+			int methodClassID = kryo.getRegisteredClass(method.getDeclaringClass()).id;
+			IntSerializer.put(buffer, methodClassID, true);
 
 			Method[] methods = getMethods(method.getDeclaringClass());
 			for (int i = 0, n = methods.length; i < n; i++) {
@@ -380,10 +381,10 @@ public class ObjectSpace {
 		}
 
 		public void readObjectData (Kryo kryo, ByteBuffer buffer) {
-			objectID = ShortSerializer.get(buffer, true);
+			objectID = IntSerializer.get(buffer, true);
 			responseID = buffer.get();
 
-			short methodClassID = ShortSerializer.get(buffer, true);
+			int methodClassID = IntSerializer.get(buffer, true);
 			Class methodClass = kryo.getRegisteredClass(methodClassID).type;
 			byte methodIndex = buffer.get();
 			method = getMethods(methodClass)[methodIndex];
@@ -401,7 +402,7 @@ public class ObjectSpace {
 	 * Internal message to return the result of a remotely invoked method.
 	 */
 	static public class InvokeMethodResult implements FrameworkMessage {
-		public short objectID;
+		public int objectID;
 		public byte responseID;
 		public Object result;
 	}
@@ -451,14 +452,14 @@ public class ObjectSpace {
 	/**
 	 * Returns the first object registered with the specified ID in any of the ObjectSpaces the specified connection belongs to.
 	 */
-	static Object getRegisteredObject (Connection connection, short objectID) {
+	static Object getRegisteredObject (Connection connection, int objectID) {
 		ObjectSpace[] instances = ObjectSpace.instances;
 		for (int i = 0, n = instances.length; i < n; i++) {
 			ObjectSpace objectSpace = instances[i];
 			// Check if the connection is in this ObjectSpace.
 			Connection[] connections = objectSpace.connections;
 			for (int j = 0; j < connections.length; j++) {
-				if (connections[j] == connection) continue;
+				if (connections[j] != connection) continue;
 				// Find an object with the objectID.
 				Object object = objectSpace.idToObject.get(objectID);
 				if (object != null) return object;
@@ -475,15 +476,18 @@ public class ObjectSpace {
 	static public void registerClasses (Kryo kryo) {
 		kryo.register(Object[].class);
 		kryo.register(InvokeMethod.class);
-		kryo.register(InvokeMethodResult.class);
+
+		FieldSerializer serializer = (FieldSerializer)kryo.register(InvokeMethodResult.class);
+		serializer.getField(InvokeMethodResult.class, "objectID").setClass(int.class, new IntSerializer(true));
+
 		kryo.register(InvocationHandler.class, new Serializer() {
 			public void writeObjectData (ByteBuffer buffer, Object object) {
 				RemoteInvocationHandler handler = (RemoteInvocationHandler)Proxy.getInvocationHandler(object);
-				ShortSerializer.put(buffer, handler.objectID, true);
+				IntSerializer.put(buffer, handler.objectID, true);
 			}
 
 			public <T> T readObjectData (ByteBuffer buffer, Class<T> type) {
-				short objectID = ShortSerializer.get(buffer, true);
+				int objectID = IntSerializer.get(buffer, true);
 				Connection connection = (Connection)Kryo.getContext().get("connection");
 				Object object = getRegisteredObject(connection, objectID);
 				if (WARN && object == null) warn("kryonet", "Unknown object ID " + objectID + " for connection: " + connection);
