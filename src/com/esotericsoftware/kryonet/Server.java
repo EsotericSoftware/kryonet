@@ -469,7 +469,7 @@ public class Server implements EndPoint {
 	}
 
 	/**
-	 * Closes all open connections and the server ports.
+	 * Closes all open connections and the server port(s).
 	 */
 	public void close () {
 		Connection[] connections = this.connections;

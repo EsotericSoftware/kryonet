@@ -17,12 +17,13 @@ public class RmiTest extends KryoNetTestCase {
 		startEndPoint(server);
 		server.bind(tcpPort);
 
-		ObjectSpace serverObjectSpace = new ObjectSpace(server);
+		final ObjectSpace serverObjectSpace = new ObjectSpace();
 		final TestObjectImpl serverTestObject = new TestObjectImpl(4321);
-		serverObjectSpace.register(serverTestObject, (short)42);
+		serverObjectSpace.register((short)42, serverTestObject);
 
 		server.addListener(new Listener() {
 			public void connected (final Connection connection) {
+				serverObjectSpace.addConnection(connection);
 				runTest(connection, 12, 1234);
 			}
 
@@ -43,7 +44,7 @@ public class RmiTest extends KryoNetTestCase {
 
 		ObjectSpace clientObjectSpace = new ObjectSpace(client);
 		final TestObjectImpl clientTestObject = new TestObjectImpl(1234);
-		clientObjectSpace.register(clientTestObject, (short)12);
+		clientObjectSpace.register((short)12, clientTestObject);
 
 		startEndPoint(client);
 		client.addListener(new Listener() {
@@ -139,9 +140,5 @@ public class RmiTest extends KryoNetTestCase {
 		public int number;
 		public String text;
 		public TestObject testObject;
-	}
-
-	public static void main (String[] args) throws IOException {
-		new RmiTest();
 	}
 }
