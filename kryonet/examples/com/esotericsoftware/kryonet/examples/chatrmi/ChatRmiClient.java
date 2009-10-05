@@ -1,5 +1,5 @@
 
-package com.esotericsoftware.kryonet.examples.chat;
+package com.esotericsoftware.kryonet.examples.chatrmi;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -33,35 +33,30 @@ import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.examples.chat.Network.ChatMessage;
 import com.esotericsoftware.kryonet.examples.chat.Network.RegisterName;
 import com.esotericsoftware.kryonet.examples.chat.Network.UpdateNames;
+import com.esotericsoftware.kryonet.rmi.ObjectSpace;
 import com.esotericsoftware.minlog.Log;
 
-public class ChatClient {
+// This class is the client for a simple chat client/server example that uses RMI.
+// It is recommended to review the non-RMI chat example first.
+// While this example uses only RMI, RMI can be mixed with non-RMI KryoNet usage.
+// RMI has more overhead (usually 4 bytes) then just sending an object.
+public class ChatRmiClient {
 	ChatFrame chatFrame;
 	Client client;
+	IPlayer player;
 
-	public ChatClient () {
+	public ChatRmiClient () {
 		client = new Client();
 		client.start();
 
-		// For consistency, the classes to be sent over the network are
-		// registered by the same method for both the client and server.
+		// Register the classes that will be sent over the network.
 		Network.register(client);
 
+		// Get the Player on the other end of the connection.
+		// This allows the client to call methods on the server.
+		player = ObjectSpace.getRemoteObject(client, Network.PLAYER, IPlayer.class);
+
 		client.addListener(new Listener() {
-			public void received (Connection connection, Object object) {
-				if (object instanceof UpdateNames) {
-					UpdateNames updateNames = (UpdateNames)object;
-					chatFrame.setNames(updateNames.names);
-					return;
-				}
-
-				if (object instanceof ChatMessage) {
-					ChatMessage chatMessage = (ChatMessage)object;
-					chatFrame.addMessage(chatMessage.text);
-					return;
-				}
-			}
-
 			public void disconnected (Connection connection) {
 				EventQueue.invokeLater(new Runnable() {
 					public void run () {
@@ -84,14 +79,14 @@ public class ChatClient {
 		if (input == null || input.trim().length() == 0) System.exit(1);
 		final String name = input.trim();
 
-		// All the ugly Swing stuff is hidden in ChatFrame so it doesn't clutter the KryoNet example code.
+		// The chat frame contains all the Swing stuff.
 		chatFrame = new ChatFrame(host);
+		// Register the chat frame so the server can call methods on it.
+		new ObjectSpace(client).register(Network.CHAT_FRAME, chatFrame);
 		// This listener is called when the send button is clicked.
 		chatFrame.setSendListener(new Runnable() {
 			public void run () {
-				ChatMessage chatMessage = new ChatMessage();
-				chatMessage.text = chatFrame.getSendText();
-				client.sendTCP(chatMessage);
+				player.sendMessage(chatFrame.getSendText());
 			}
 		});
 		// This listener is called when the chat window is closed.
@@ -112,14 +107,13 @@ public class ChatClient {
 					ex.printStackTrace();
 					System.exit(1);
 				}
-				RegisterName registerName = new RegisterName();
-				registerName.name = name;
-				client.sendTCP(registerName);
+				player.registerName(name);
 			}
 		}.start();
 	}
 
-	static private class ChatFrame extends JFrame {
+	// This is the JFrame for the client. It implments IChatFrame so the server can call methods on it.
+	static private class ChatFrame extends JFrame implements IChatFrame {
 		CardLayout cardLayout;
 		JProgressBar progressBar;
 		JList messageList;
@@ -128,7 +122,7 @@ public class ChatClient {
 		JList nameList;
 
 		public ChatFrame (String host) {
-			super("Chat Client");
+			super("Chat RMI Client");
 			setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 			setSize(640, 200);
 			setLocationRelativeTo(null);
@@ -210,9 +204,8 @@ public class ChatClient {
 			return sendText.getText().trim();
 		}
 
+		// The server calls this method as needed.
 		public void setNames (final String[] names) {
-			// This listener is run on the client's update thread, which was started by client.start().
-			// We must be careful to only interact with Swing components on the Swing event thread.
 			EventQueue.invokeLater(new Runnable() {
 				public void run () {
 					cardLayout.show(getContentPane(), "chat");
@@ -224,6 +217,7 @@ public class ChatClient {
 			});
 		}
 
+		// The server calls this method as needed.
 		public void addMessage (final String message) {
 			EventQueue.invokeLater(new Runnable() {
 				public void run () {
@@ -237,6 +231,6 @@ public class ChatClient {
 
 	public static void main (String[] args) {
 		Log.set(Log.LEVEL_DEBUG);
-		new ChatClient();
+		new ChatRmiClient();
 	}
 }

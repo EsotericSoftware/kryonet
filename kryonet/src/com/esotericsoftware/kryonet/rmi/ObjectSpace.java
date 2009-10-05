@@ -25,21 +25,20 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.EndPoint;
 import com.esotericsoftware.kryonet.FrameworkMessage;
 import com.esotericsoftware.kryonet.Listener;
-import com.esotericsoftware.kryonet.Server;
-import com.esotericsoftware.minlog.Log;
 
 /**
- * Allows methods on registered objects to be invoked remotely.
+ * Allows methods on registered objects to be invoked remotely over TCP. Remote method invocation has more overhead (usually 4
+ * bytes) then just sending an object.
  * @author Nathan Sweet <misc@n4te.com>
- * 
  */
 public class ObjectSpace {
+	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
 	static private final HashMap<Class, Method[]> methodCache = new HashMap();
 
-	EndPoint endPoint;
 	final ShortHashMap idToObject = new ShortHashMap();
-	Connection[] connections;
+	Connection[] connections = {};
+	final Object connectionsLock = new Object();
 
 	private final Listener invokeListener = new Listener() {
 		public void received (Connection connection, Object object) {
@@ -53,93 +52,101 @@ public class ObjectSpace {
 			InvokeMethod invokeMethod = (InvokeMethod)object;
 			Object target = idToObject.get(invokeMethod.objectID);
 			if (target == null) {
-				Log.warn("kryonet", "Ignoring remote invocation request for unknown object ID: " + invokeMethod.objectID);
+				if (WARN) warn("kryonet", "Ignoring remote invocation request for unknown object ID: " + invokeMethod.objectID);
 				return;
 			}
 			invoke(connection, target, invokeMethod);
 		}
+
+		public void disconnected (Connection connection) {
+			removeConnection(connection);
+		}
 	};
 
 	/**
-	 * Creates an ObjectSpace for the specified server.
-	 * @param allConnections If true, objects in this ObjectSpace will be available to all connections for the server. If false,
-	 *           only connections added with {@link #addConnection(Connection)} will have access to objects in this ObjectSpace.
+	 * Creates an ObjectSpace with no connections.
 	 */
-	public ObjectSpace (Server server, boolean allConnections) {
-		this((EndPoint)server, allConnections);
+	public ObjectSpace () {
+		synchronized (instancesLock) {
+			ObjectSpace[] instances = ObjectSpace.instances;
+			ObjectSpace[] newInstances = new ObjectSpace[instances.length + 1];
+			newInstances[0] = this;
+			System.arraycopy(instances, 0, newInstances, 1, instances.length);
+			ObjectSpace.instances = newInstances;
+		}
 	}
 
 	/**
-	 * Creates an ObjectSpace for the specified client or server. If the end point is a server, this ObjectSpace will be available
-	 * to all connections for the server.
+	 * Creates an ObjectSpace with the specified connection. More connections can be {@link #addConnection(Connection) added}.
 	 */
-	public ObjectSpace (EndPoint endPoint) {
-		this(endPoint, true);
-	}
-
-	ObjectSpace (EndPoint endPoint, boolean allConnections) {
-		if (endPoint == null) throw new IllegalArgumentException("endPoint cannot be null.");
-		this.endPoint = endPoint;
-
-		if (!allConnections) connections = new Connection[0];
-		endPoint.addListener(invokeListener);
-
-		ObjectSpace[] instances = ObjectSpace.instances;
-		ObjectSpace[] newInstances = new ObjectSpace[instances.length + 1];
-		newInstances[0] = this;
-		System.arraycopy(instances, 0, newInstances, 1, instances.length);
-		ObjectSpace.instances = newInstances;
+	public ObjectSpace (Connection connection) {
+		this();
+		addConnection(connection);
 	}
 
 	/**
-	 * Registers an object to allow the remote end of connections to access it using the specified ID.
+	 * Registers an object to allow the remote end of the ObjectSpace's connections to access it using the specified ID.
+	 * <p>
+	 * If a connection is added to multiple ObjectSpaces, the same object ID should not be used in more than one of those
+	 * ObjectSpaces.
 	 * @see #getRemoteObject(Connection, short, Class...)
 	 */
-	public void register (Object object, short objectID) {
+	public void register (short objectID, Object object) {
 		if (object == null) throw new IllegalArgumentException("object cannot be null.");
 		idToObject.put(objectID, object);
+		if (TRACE) trace("kryonet", "Object registered with ObjectSpace as " + objectID + ": " + object);
 	}
 
 	/**
-	 * Causes this ObjectSpace to stop listening to the client or server for method invocation messages.
+	 * Causes this ObjectSpace to stop listening to the connections for method invocation messages.
 	 */
 	public void close () {
-		endPoint.removeListener(invokeListener);
+		Connection[] connections = this.connections;
+		for (int i = 0; i < connections.length; i++)
+			connections[i].removeListener(invokeListener);
 
-		ArrayList<Connection> temp = new ArrayList(Arrays.asList(instances));
-		temp.remove(this);
-		instances = temp.toArray(new ObjectSpace[temp.size()]);
+		synchronized (instancesLock) {
+			ArrayList<Connection> temp = new ArrayList(Arrays.asList(instances));
+			temp.remove(this);
+			instances = temp.toArray(new ObjectSpace[temp.size()]);
+		}
+
+		if (TRACE) trace("kryonet", "Closed ObjectSpace.");
 	}
 
 	/**
-	 * Allows the remote end of the specified connection to access registered objects. This is only valid when using the
-	 * {@link #ObjectSpace(Server, boolean)} constructor with allConnections set to true.
+	 * Allows the remote end of the specified connection to access objects registered in this ObjectSpace.
 	 */
 	public void addConnection (Connection connection) {
 		if (connection == null) throw new IllegalArgumentException("connection cannot be null.");
-		if (!(endPoint instanceof Server))
-			throw new IllegalStateException("Cannot add connection: ObjectSpace not created for a Server");
-		if (connections == null)
-			throw new IllegalStateException("Cannot add connection: ObjectSpace configured for all connections");
-		Connection[] newConnections = new Connection[connections.length + 1];
-		newConnections[0] = connection;
-		System.arraycopy(connections, 0, newConnections, 1, connections.length);
-		connections = newConnections;
+
+		synchronized (connectionsLock) {
+			Connection[] newConnections = new Connection[connections.length + 1];
+			newConnections[0] = connection;
+			System.arraycopy(connections, 0, newConnections, 1, connections.length);
+			connections = newConnections;
+		}
+
+		connection.addListener(invokeListener);
+
+		if (TRACE) trace("kryonet", "Added connection to ObjectSpace: " + connection);
 	}
 
 	/**
-	 * Removes the specified connection. This is only valid when using the {@link #ObjectSpace(Server, boolean)} constructor with
-	 * allConnections set to true.
+	 * Removes the specified connection, it will no longer be able to access objects registered in this ObjectSpace.
 	 */
 	public void removeConnection (Connection connection) {
 		if (connection == null) throw new IllegalArgumentException("connection cannot be null.");
-		if (!(endPoint instanceof Server))
-			throw new IllegalStateException("Cannot add connection: ObjectSpace not created for a Server");
-		if (connections == null)
-			throw new IllegalStateException("Cannot remove connection: ObjectSpace configured for all connections");
-		ArrayList<Connection> temp = new ArrayList(Arrays.asList(connections));
-		temp.remove(connection);
-		connections = temp.toArray(new Connection[temp.size()]);
+
+		connection.removeListener(invokeListener);
+
+		synchronized (connectionsLock) {
+			ArrayList<Connection> temp = new ArrayList(Arrays.asList(connections));
+			temp.remove(connection);
+			connections = temp.toArray(new Connection[temp.size()]);
+		}
+
+		if (TRACE) trace("kryonet", "Removed connection from ObjectSpace: " + connection);
 	}
 
 	/**
@@ -149,6 +156,13 @@ public class ObjectSpace {
 	 * @param connection The remote side of this connection requested the invocation.
 	 */
 	protected void invoke (Connection connection, Object target, InvokeMethod invokeMethod) {
+		if (DEBUG) {
+			String argString = Arrays.deepToString(invokeMethod.args);
+			argString = argString.substring(1, argString.length() - 1);
+			debug("kryonet", connection + " received: " + target.getClass().getSimpleName() + "#" + invokeMethod.method.getName()
+				+ "(" + argString + ")");
+		}
+
 		Object result;
 		Method method = invokeMethod.method;
 		try {
@@ -164,7 +178,8 @@ public class ObjectSpace {
 		invokeMethodResult.objectID = invokeMethod.objectID;
 		invokeMethodResult.responseID = responseID;
 		invokeMethodResult.result = result;
-		connection.sendTCP(invokeMethodResult);
+		int length = connection.sendTCP(invokeMethodResult);
+		if (DEBUG) debug("kryonet", connection + " sent: " + result + " (" + length + ")");
 	}
 
 	/**
@@ -183,9 +198,11 @@ public class ObjectSpace {
 	 * {@link RemoteObject#setResponseTimeout(int) response timeout}.
 	 * <p>
 	 * If {@link RemoteObject#setNonBlocking(boolean, boolean) non-blocking} is false (the default), then methods that return a
-	 * value must not be called from the update thread for the connection. An exception will be thrown if this occurs.
+	 * value must not be called from the update thread for the connection. An exception will be thrown if this occurs. Methods with
+	 * a void return value can be called on the update thread.
 	 * <p>
-	 * If the connection has more than one ObjectSpace, the first one with an object matching the specified object ID will be used.
+	 * If a proxy returned from this method is part of an object graph sent over the network, the object graph on the receiving
+	 * side will have the proxy object replaced with the registered object.
 	 * @see RemoteObject
 	 */
 	static public RemoteObject getRemoteObject (Connection connection, short objectID, Class... ifaces) {
@@ -198,6 +215,9 @@ public class ObjectSpace {
 			connection, objectID));
 	}
 
+	/**
+	 * Handles network communication when methods are invoked on a proxy.
+	 */
 	static private class RemoteInvocationHandler implements InvocationHandler {
 		private final Connection connection;
 		final short objectID;
@@ -266,7 +286,13 @@ public class ObjectSpace {
 				if (nextResponseID == 0) nextResponseID++; // Zero means don't send back a response.
 				invokeMethod.responseID = responseID;
 			}
-			connection.sendTCP(invokeMethod);
+			int length = connection.sendTCP(invokeMethod);
+			if (DEBUG) {
+				String argString = Arrays.deepToString(args);
+				argString = argString.substring(1, argString.length() - 1);
+				debug("kryonet", connection + " sent: " + method.getDeclaringClass().getSimpleName() + "#" + method.getName() + "("
+					+ argString + ") (" + length + ")");
+			}
 
 			if (!hasReturnValue) return null;
 			if (nonBlocking) {
@@ -423,7 +449,27 @@ public class ObjectSpace {
 	}
 
 	/**
-	 * Registers the classes needed for using ObjectSpaces. This should be called before any connections are opened.
+	 * Returns the first object registered with the specified ID in any of the ObjectSpaces the specified connection belongs to.
+	 */
+	static Object getRegisteredObject (Connection connection, short objectID) {
+		ObjectSpace[] instances = ObjectSpace.instances;
+		for (int i = 0, n = instances.length; i < n; i++) {
+			ObjectSpace objectSpace = instances[i];
+			// Check if the connection is in this ObjectSpace.
+			Connection[] connections = objectSpace.connections;
+			for (int j = 0; j < connections.length; j++) {
+				if (connections[j] == connection) continue;
+				// Find an object with the objectID.
+				Object object = objectSpace.idToObject.get(objectID);
+				if (object != null) return object;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Registers the classes needed to use ObjectSpaces. This should be called before any connections are opened.
+	 * @see EndPoint#getKryo()
 	 * @see Kryo#register(Class, Serializer)
 	 */
 	static public void registerClasses (Kryo kryo) {
@@ -438,22 +484,10 @@ public class ObjectSpace {
 
 			public <T> T readObjectData (ByteBuffer buffer, Class<T> type) {
 				short objectID = ShortSerializer.get(buffer, true);
-
-				ObjectSpace[] instances = ObjectSpace.instances;
 				Connection connection = (Connection)Kryo.getContext().get("connection");
-				EndPoint connectionEndPoint = connection.getEndPoint();
-				for (int i = 0, n = instances.length; i < n; i++) {
-					// Find an ObjectSpace for the connection.
-					ObjectSpace objectSpace = instances[i];
-					if (connectionEndPoint == objectSpace.endPoint) {
-						// Find an object with the objectID.
-						Object object = objectSpace.idToObject.get(objectID);
-						if (object != null) return (T)object;
-					}
-				}
-
-				if (WARN) warn("kryonet", "Unknown object ID " + objectID + " for connection: " + connection);
-				return null;
+				Object object = getRegisteredObject(connection, objectID);
+				if (WARN && object == null) warn("kryonet", "Unknown object ID " + objectID + " for connection: " + connection);
+				return (T)object;
 			}
 		});
 	}

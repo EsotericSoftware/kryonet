@@ -47,17 +47,16 @@ public class Connection {
 
 	/**
 	 * Sends the object over the network using TCP.
+	 * @return The number of bytes sent.
 	 * @see Kryo#register(Class, com.esotericsoftware.kryo.Serializer)
 	 */
-	public void sendTCP (Object object) {
+	public int sendTCP (Object object) {
 		if (object == null) throw new IllegalArgumentException("object cannot be null.");
 		try {
 			int length = tcp.send(this, object);
 			if (length == 0) {
 				if (TRACE) trace("kryonet", this + " TCP had nothing to send.");
-				return;
-			}
-			if (DEBUG) {
+			} else if (DEBUG) {
 				String objectString = object == null ? "null" : object.getClass().getSimpleName();
 				if (!(object instanceof FrameworkMessage)) {
 					debug("kryonet", this + " sent TCP: " + objectString + " (" + length + ")");
@@ -65,6 +64,7 @@ public class Connection {
 					trace("kryonet", this + " sent TCP: " + objectString + " (" + length + ")");
 				}
 			}
+			return length;
 		} catch (IOException ex) {
 			if (DEBUG) {
 				if (id != -1)
@@ -72,6 +72,7 @@ public class Connection {
 				else
 					debug("kryonet", "Unable to send TCP.", ex);
 			}
+			return 0;
 		} catch (SerializationException ex) {
 			close();
 			throw ex;
@@ -80,10 +81,11 @@ public class Connection {
 
 	/**
 	 * Sends the object over the network using UDP.
+	 * @return The number of bytes sent.
 	 * @see Kryo#register(Class, com.esotericsoftware.kryo.Serializer)
 	 * @throws IllegalStateException if this connection was not opened with both TCP and UDP.
 	 */
-	public void sendUDP (Object object) {
+	public int sendUDP (Object object) {
 		if (object == null) throw new IllegalArgumentException("object cannot be null.");
 		SocketAddress address = udpRemoteAddress;
 		if (address == null && udp != null) address = udp.connectedAddress;
@@ -96,9 +98,7 @@ public class Connection {
 			int length = udp.send(this, object, address);
 			if (length == 0) {
 				if (TRACE) trace("kryonet", this + " UDP had nothing to send.");
-				return;
-			}
-			if (DEBUG) {
+			} else if (DEBUG) {
 				if (length != -1) {
 					String objectString = object == null ? "null" : object.getClass().getSimpleName();
 					if (!(object instanceof FrameworkMessage)) {
@@ -109,10 +109,7 @@ public class Connection {
 				} else
 					debug("kryonet", this + " was unable to send, UDP socket buffer full.");
 			}
-		} catch (SerializationException ex) {
-			if (ERROR) error("kryonet", "Error sending UDP with connection: " + this, ex);
-			close();
-			throw ex;
+			return length;
 		} catch (IOException ex) {
 			if (DEBUG) {
 				if (id != -1)
@@ -120,6 +117,11 @@ public class Connection {
 				else
 					debug("kryonet", "Unable to send UDP.", ex);
 			}
+			return 0;
+		} catch (SerializationException ex) {
+			if (ERROR) error("kryonet", "Error sending UDP with connection: " + this, ex);
+			close();
+			throw ex;
 		}
 	}
 
