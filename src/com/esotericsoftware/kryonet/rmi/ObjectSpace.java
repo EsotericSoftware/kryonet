@@ -29,7 +29,7 @@ import com.esotericsoftware.kryonet.Listener;
 
 /**
  * Allows methods on registered objects to be invoked remotely over TCP. Remote method invocation has more overhead (usually 4
- * bytes) then just sending an object.
+ * bytes) than just sending an object.
  * @author Nathan Sweet <misc@n4te.com>
  */
 public class ObjectSpace {
