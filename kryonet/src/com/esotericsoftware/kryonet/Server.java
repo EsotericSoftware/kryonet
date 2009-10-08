@@ -31,8 +31,8 @@ import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
  */
 public class Server implements EndPoint {
 	private final Kryo kryo;
-	private int bufferSize;
-	private Selector selector;
+	private final int writeBufferSize, readBufferSize;
+	private final Selector selector;
 	private ServerSocketChannel serverChannel;
 	private UdpConnection udp;
 	private Connection[] connections = {};
@@ -66,17 +66,31 @@ public class Server implements EndPoint {
 	};
 
 	/**
-	 * Creates a Server with a buffer size of 2048.
+	 * Creates a Server with a write buffer size of 16384 and a read buffer size of 4096.
 	 */
 	public Server () {
-		this(2048);
+		this(16384, 4096);
 	}
 
 	/**
-	 * @param bufferSize The maximum size an object may be after serialization.
+	 * @param writeBufferSize One buffer of this size is allocated for each connected client. Objects are serialized to the write
+	 *           buffer where the bytes are queued until they can be written to the socket.
+	 *           <p>
+	 *           Normally the socket is writable and the bytes are written immediately. If the socket cannot be written to and
+	 *           enough serialized objects are queued to overflow the buffer, then the connection will be closed.
+	 *           <p>
+	 *           The write buffer should be sized at least as large as the largest object that will be sent, plus some head room to
+	 *           allow for some serialized objects to be queued in case the buffer is temporarily not writable. The amount of head
+	 *           room needed is dependent upon the size of objects being sent and how often they are sent.
+	 * @param readBufferSize One (using only TCP) or three (using both TCP and UDP) buffers of this size are allocated for each
+	 *           connected client. Bytes are read from the socket and placed in the read buffer. As soon as enough bytes are
+	 *           received, the object is deserialized and the bytes are removed from the read buffer.
+	 *           <p>
+	 *           The read buffer should be sized at least as large as the largest object that will be received.
 	 */
-	public Server (int bufferSize) {
-		this.bufferSize = bufferSize;
+	public Server (int writeBufferSize, int readBufferSize) {
+		this.writeBufferSize = writeBufferSize;
+		this.readBufferSize = readBufferSize;
 
 		kryo = new Kryo();
 		FieldSerializer fieldSerializer = new FieldSerializer(kryo);
@@ -121,7 +135,7 @@ public class Server implements EndPoint {
 				if (DEBUG) debug("kryonet", "Accepting connections on port: " + tcpPort + "/TCP");
 
 				if (udpPort != -1) {
-					udp = new UdpConnection(kryo, bufferSize);
+					udp = new UdpConnection(kryo, readBufferSize);
 					udp.bind(selector, udpPort);
 					if (DEBUG) debug("kryonet", "Accepting connections on port: " + udpPort + "/UDP");
 				}
@@ -331,7 +345,7 @@ public class Server implements EndPoint {
 
 	private void acceptOperation (SocketChannel socketChannel) {
 		Connection connection = newConnection();
-		connection.initialize(kryo, bufferSize);
+		connection.initialize(kryo, writeBufferSize, readBufferSize);
 		connection.endPoint = this;
 		if (udp != null) connection.udp = udp;
 		try {

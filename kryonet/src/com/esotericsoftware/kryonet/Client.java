@@ -22,7 +22,6 @@ import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
 import com.esotericsoftware.kryo.serialize.FieldSerializer;
 import com.esotericsoftware.kryo.serialize.IntSerializer;
-import com.esotericsoftware.kryo.serialize.ShortSerializer;
 import com.esotericsoftware.kryonet.FrameworkMessage.DiscoverHost;
 import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
@@ -43,16 +42,29 @@ public class Client extends Connection implements EndPoint {
 	private Thread updateThread;
 
 	/**
-	 * Creates a Client with a buffer size of 2048.
+	 * Creates a Client with a write buffer size of 8192 and a read buffer size of 2048.
 	 */
 	public Client () {
-		this(2048);
+		this(8192, 2048);
 	}
 
 	/**
-	 * @param bufferSize The maximum size an object may be after serialization.
+	 * @param writeBufferSize One buffer of this size is allocated. Objects are serialized to the write buffer where the bytes are
+	 *           queued until they can be written to the socket.
+	 *           <p>
+	 *           Normally the socket is writable and the bytes are written immediately. If the socket cannot be written to and
+	 *           enough serialized objects are queued to overflow the buffer, then the connection will be closed.
+	 *           <p>
+	 *           The write buffer should be sized at least as large as the largest object that will be sent, plus some head room to
+	 *           allow for some serialized objects to be queued in case the buffer is temporarily not writable. The amount of head
+	 *           room needed is dependent upon the size of objects being sent and how often they are sent.
+	 * @param readBufferSize One (using only TCP) or three (using both TCP and UDP) buffers of this size are allocated. Bytes are
+	 *           read from the socket and placed in the read buffer. As soon as enough bytes are received, the object is
+	 *           deserialized and the bytes are removed from the read buffer.
+	 *           <p>
+	 *           The read buffer should be sized at least as large as the largest object that will be received.
 	 */
-	public Client (int bufferSize) {
+	public Client (int writeBufferSize, int readBufferSize) {
 		super();
 		endPoint = this;
 
@@ -64,7 +76,7 @@ public class Client extends Connection implements EndPoint {
 		kryo.register(DiscoverHost.class, fieldSerializer);
 		kryo.register(Ping.class, fieldSerializer);
 
-		initialize(kryo, bufferSize);
+		initialize(kryo, writeBufferSize, readBufferSize);
 
 		try {
 			selector = Selector.open();
