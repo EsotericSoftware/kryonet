@@ -7,12 +7,14 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.SocketException;
 import java.nio.channels.SocketChannel;
 
 import com.esotericsoftware.kryo.Context;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
+import com.esotericsoftware.kryonet.TcpConnection.WriteBufferOverflowException;
 
 /**
  * Represents a TCP and optionally a UDP connection between a {@link Client} and a {@link Server}. If either underlying connection
@@ -73,6 +75,10 @@ public class Connection {
 					debug("kryonet", "Unable to send TCP.", ex);
 			}
 			return 0;
+		} catch (WriteBufferOverflowException ex) {
+			if (WARN) warn(ex.getMessage(), ex.getCause());
+			close();
+			return 0;
 		} catch (SerializationException ex) {
 			close();
 			throw ex;
@@ -89,12 +95,14 @@ public class Connection {
 		if (object == null) throw new IllegalArgumentException("object cannot be null.");
 		SocketAddress address = udpRemoteAddress;
 		if (address == null && udp != null) address = udp.connectedAddress;
-		if (address == null) throw new IllegalStateException("Connection is not connected via UDP.");
+		if (address == null && id != -1) throw new IllegalStateException("Connection is not connected via UDP.");
 
 		Context context = Kryo.getContext();
 		context.put("connection", this);
 		context.put("connectionID", id);
 		try {
+			if (address == null) throw new SocketException("Connection is closed.");
+
 			int length = udp.send(this, object, address);
 			if (length == 0) {
 				if (TRACE) trace("kryonet", this + " UDP had nothing to send.");
