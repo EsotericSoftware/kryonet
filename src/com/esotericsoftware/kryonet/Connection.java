@@ -34,8 +34,8 @@ public class Connection {
 	protected Connection () {
 	}
 
-	void initialize (Kryo kryo, int bufferSize) {
-		tcp = new TcpConnection(kryo, bufferSize);
+	void initialize (Kryo kryo, int writeBufferSize, int readBufferSize) {
+		tcp = new TcpConnection(kryo, writeBufferSize, readBufferSize);
 	}
 
 	/**

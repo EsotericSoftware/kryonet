@@ -33,10 +33,10 @@ class TcpConnection {
 	private int currentObjectLength;
 	private long lastCommunicationTime;
 
-	public TcpConnection (Kryo kryo, int bufferSize) {
+	public TcpConnection (Kryo kryo, int writeBufferSize, int readBufferSize) {
 		this.kryo = kryo;
-		readBuffer = ByteBuffer.allocateDirect(bufferSize);
-		writeBuffer = ByteBuffer.allocateDirect(bufferSize);
+		writeBuffer = ByteBuffer.allocateDirect(writeBufferSize);
+		readBuffer = ByteBuffer.allocateDirect(readBufferSize);
 	}
 
 	public SelectionKey accept (Selector selector, SocketChannel socketChannel) throws IOException {
