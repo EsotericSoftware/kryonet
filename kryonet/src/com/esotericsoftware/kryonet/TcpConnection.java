@@ -189,8 +189,7 @@ class TcpConnection {
 					writeBuffer.put(i + shift, writeBuffer.get(i));
 				// Insert the part of the length that failed.
 				writeBuffer.position(start);
-				while (writeLengthBuffer.hasRemaining())
-					writeBuffer.put(writeLengthBuffer.get());
+				writeBuffer.put(writeLengthBuffer);
 				writeBuffer.position(start + dataLength + shift);
 			}
 

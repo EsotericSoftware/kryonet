@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.PriorityQueue;
 
 import com.esotericsoftware.kryo.CustomSerialization;
@@ -35,7 +36,7 @@ import com.esotericsoftware.kryonet.Listener;
 public class ObjectSpace {
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
-	static private final HashMap<Class, Method[]> methodCache = new HashMap();
+	static private final IdentityHashMap<Class, Method[]> methodCache = new IdentityHashMap();
 
 	final IntHashMap idToObject = new IntHashMap();
 	Connection[] connections = {};
