@@ -5,7 +5,7 @@ import static com.esotericsoftware.minlog.Log.*;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -29,7 +29,7 @@ public class Listener {
 	 * class uses a HashMap lookup and (cached) reflection, so is not as efficient as writing a series of "instanceof" statements.
 	 */
 	static public class ReflectionListener extends Listener {
-		private HashMap<Class, Method> classToMethod = new HashMap();
+		private IdentityHashMap<Class, Method> classToMethod = new IdentityHashMap();
 
 		public void received (Connection connection, Object object) {
 			Class type = object.getClass();
