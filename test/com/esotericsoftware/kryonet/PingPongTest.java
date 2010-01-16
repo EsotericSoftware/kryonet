@@ -85,7 +85,7 @@ public class PingPongTest extends KryoNetTestCase {
 	}
 
 	static public class Data {
-		public String[] strings = {"abcdefghijklmnopqrstuvwxyz0123456789", "", null, "!@#$"};
+		public String[] strings = {"abcdefghijklmnopqrstuvwxyz0123456789", "", null, "!@#$", "αινσϊ"};
 		public int[] ints = {-1234567, 1234567, -1, 0, 1, Integer.MAX_VALUE, Integer.MIN_VALUE};
 		public short[] shorts = {-12345, 12345, -1, 0, 1, Short.MAX_VALUE, Short.MIN_VALUE};
 		public float[] floats = {0, -0, 1, -1, 123456, -123456, 0.1f, 0.2f, -0.3f, (float)Math.PI, Float.MAX_VALUE, Float.MIN_VALUE};
