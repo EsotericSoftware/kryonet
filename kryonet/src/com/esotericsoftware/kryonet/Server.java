@@ -93,12 +93,11 @@ public class Server implements EndPoint {
 		this.readBufferSize = readBufferSize;
 
 		kryo = new Kryo();
-		FieldSerializer fieldSerializer = new FieldSerializer(kryo);
-		kryo.register(RegisterTCP.class, fieldSerializer);
-		kryo.register(RegisterUDP.class, fieldSerializer);
-		kryo.register(KeepAlive.class, fieldSerializer);
-		kryo.register(DiscoverHost.class, fieldSerializer);
-		kryo.register(Ping.class, fieldSerializer);
+		kryo.register(RegisterTCP.class);
+		kryo.register(RegisterUDP.class);
+		kryo.register(KeepAlive.class);
+		kryo.register(DiscoverHost.class);
+		kryo.register(Ping.class);
 
 		try {
 			selector = Selector.open();

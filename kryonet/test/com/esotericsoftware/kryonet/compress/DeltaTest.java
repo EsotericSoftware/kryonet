@@ -13,6 +13,7 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.KryoNetTestCase;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
+import com.esotericsoftware.kryonet.compress.DeflateTest.SomeData;
 import com.esotericsoftware.minlog.Log;
 
 public class DeltaTest extends KryoNetTestCase {
@@ -73,7 +74,7 @@ public class DeltaTest extends KryoNetTestCase {
 
 	static public void register (Kryo kryo) {
 		kryo.register(short[].class);
-		kryo.register(SomeData.class, new DeltaCompressor(kryo, new FieldSerializer(kryo), 2048, 4));
+		kryo.register(SomeData.class, new DeltaCompressor(kryo, new FieldSerializer(kryo, SomeData.class), 2048, 4));
 		kryo.register(SomeOtherData.class);
 	}
 
