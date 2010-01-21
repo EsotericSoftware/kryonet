@@ -69,12 +69,11 @@ public class Client extends Connection implements EndPoint {
 		endPoint = this;
 
 		kryo = new Kryo();
-		FieldSerializer fieldSerializer = new FieldSerializer(kryo);
-		kryo.register(RegisterTCP.class, fieldSerializer);
-		kryo.register(RegisterUDP.class, fieldSerializer);
-		kryo.register(KeepAlive.class, fieldSerializer);
-		kryo.register(DiscoverHost.class, fieldSerializer);
-		kryo.register(Ping.class, fieldSerializer);
+		kryo.register(RegisterTCP.class);
+		kryo.register(RegisterUDP.class);
+		kryo.register(KeepAlive.class);
+		kryo.register(DiscoverHost.class);
+		kryo.register(Ping.class);
 
 		initialize(kryo, writeBufferSize, readBufferSize);
 
@@ -333,7 +332,7 @@ public class Client extends Connection implements EndPoint {
 		try {
 			socket = new DatagramSocket();
 			try {
-				int classID = kryo.getRegisteredClass(DiscoverHost.class).id;
+				int classID = kryo.getRegisteredClass(DiscoverHost.class).getID();
 				ByteBuffer dataBuffer = ByteBuffer.allocate(4);
 				IntSerializer.put(dataBuffer, classID, true);
 				dataBuffer.flip();

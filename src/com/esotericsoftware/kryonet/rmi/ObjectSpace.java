@@ -13,7 +13,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
+import java.util.HashMap;
 import java.util.PriorityQueue;
 
 import com.esotericsoftware.kryo.CustomSerialization;
@@ -36,7 +36,7 @@ import com.esotericsoftware.kryonet.Listener;
 public class ObjectSpace {
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
-	static private final IdentityHashMap<Class, Method[]> methodCache = new IdentityHashMap();
+	static private final HashMap<Class, Method[]> methodCache = new HashMap();
 
 	final IntHashMap idToObject = new IntHashMap();
 	Connection[] connections = {};
@@ -362,7 +362,7 @@ public class ObjectSpace {
 			IntSerializer.put(buffer, objectID, true);
 			buffer.put(responseID);
 
-			int methodClassID = kryo.getRegisteredClass(method.getDeclaringClass()).id;
+			int methodClassID = kryo.getRegisteredClass(method.getDeclaringClass()).getID();
 			IntSerializer.put(buffer, methodClassID, true);
 
 			Method[] methods = getMethods(method.getDeclaringClass());
@@ -386,7 +386,7 @@ public class ObjectSpace {
 			responseID = buffer.get();
 
 			int methodClassID = IntSerializer.get(buffer, true);
-			Class methodClass = kryo.getRegisteredClass(methodClassID).type;
+			Class methodClass = kryo.getRegisteredClass(methodClassID).getType();
 			byte methodIndex = buffer.get();
 			method = getMethods(methodClass)[methodIndex];
 
@@ -479,7 +479,7 @@ public class ObjectSpace {
 		kryo.register(InvokeMethod.class);
 
 		FieldSerializer serializer = (FieldSerializer)kryo.register(InvokeMethodResult.class);
-		serializer.getField(InvokeMethodResult.class, "objectID").setClass(int.class, new IntSerializer(true));
+		serializer.getField("objectID").setClass(int.class, new IntSerializer(true));
 
 		kryo.register(InvocationHandler.class, new Serializer() {
 			public void writeObjectData (ByteBuffer buffer, Object object) {

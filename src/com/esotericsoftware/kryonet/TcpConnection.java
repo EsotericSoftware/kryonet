@@ -91,6 +91,7 @@ class TcpConnection {
 	public Object readObject (Connection connection) throws IOException {
 		SocketChannel socketChannel = this.socketChannel;
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
+		// BOZO - Avoid read if the buffer is full enough.
 		int bytesRead = socketChannel.read(readBuffer);
 		if (bytesRead == -1) throw new SocketException("Connection is closed.");
 
@@ -167,6 +168,7 @@ class TcpConnection {
 			try {
 				kryo.writeClassAndObject(writeBuffer, object);
 			} catch (BufferOverflowException ex) {
+				// BOZO - Recover from failure.
 				close();
 				throw new WriteBufferOverflowException("Write buffer overflow, position/limit/capacity: " + writeBuffer.position()
 					+ "/" + writeBuffer.limit() + "/" + writeBuffer.capacity(), ex);
@@ -181,7 +183,7 @@ class TcpConnection {
 			int lengthLength = IntSerializer.put(writeLengthBuffer, dataLength, true);
 			writeLengthBuffer.flip();
 			while (writeLengthBuffer.hasRemaining())
-				if (socketChannel.write(writeLengthBuffer) == 0) break;
+				if (socketChannel.write(writeLengthBuffer) == 0) break; // BOZO - Combine with buffer.
 			if (writeLengthBuffer.hasRemaining()) {
 				// If writing the length failed, shift the object data over.
 				int shift = writeLengthBuffer.remaining();
