@@ -197,7 +197,7 @@ public class Client extends Connection implements EndPoint {
 							Object object = tcp.readObject(this);
 							if (object == null) break;
 							if (id == -1 || (udp != null && !udpRegistered)) {
-								if (object instanceof RegisterTCP) id = ((RegisterTCP)object).connectionID;
+								if (object instanceof RegisterTCP) setID(((RegisterTCP)object).connectionID);
 								if (object instanceof RegisterUDP) {
 									synchronized (udpRegistrationLock) {
 										udpRegistered = true;

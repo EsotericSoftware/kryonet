@@ -140,7 +140,7 @@ public class Connection {
 			notifyDisconnected();
 			if (INFO) info("kryonet", this + " disconnected.");
 		}
-		id = -1;
+		setID(-1);
 	}
 
 	/**
@@ -296,5 +296,10 @@ public class Connection {
 	public String toString () {
 		if (name != null) return name;
 		return "Connection " + id;
+	}
+
+	void setID (int id) {
+		this.id = id;
+		if (id != -1 && name == null) name = "Connection " + id;
 	}
 }
