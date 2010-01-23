@@ -20,7 +20,6 @@ abstract public class KryoNetTestCase extends TestCase {
 	boolean fail;
 
 	public KryoNetTestCase () {
-		super();
 		// Log.set(Log.LEVEL_TRACE);
 		Log.set(Log.LEVEL_DEBUG);
 	}
