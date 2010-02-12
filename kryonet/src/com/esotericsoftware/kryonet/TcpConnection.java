@@ -217,8 +217,19 @@ class TcpConnection {
 				}
 			}
 
+			if (TRACE) {
+				float percentage = writeBuffer.position() / (float)writeBuffer.capacity();
+				trace("kryonet", connection + " write buffer utilization: " + percentage + "%");
+			}
+
 			// If it was a partial write, set the OP_WRITE flag to be notified when more writing can occur.
-			if (!writeToSocket()) selectionKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+			if (!writeToSocket()) {
+				selectionKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+				if (DEBUG) {
+					float percentage = writeBuffer.position() / (float)writeBuffer.capacity();
+					if (percentage > 0.75f) debug("kryonet", connection + " write buffer is approaching capacity: " + percentage + "%");
+				}
+			}
 
 			return lengthLength + dataLength;
 		}
