@@ -219,9 +219,9 @@ class TcpConnection {
 
 			if (DEBUG || TRACE) {
 				float percentage = writeBuffer.position() / (float)writeBuffer.capacity();
-				if (TRACE) trace("kryonet", connection + " write buffer utilization: " + percentage + "%");
+				if (TRACE) trace("kryonet", connection + " TCP write buffer utilization: " + percentage + "%");
 				if (DEBUG && percentage > 0.75f)
-					debug("kryonet", connection + " write buffer is approaching capacity: " + percentage + "%");
+					debug("kryonet", connection + " TCP write buffer is approaching capacity: " + percentage + "%");
 			}
 
 			// If it was a partial write, set the OP_WRITE flag to be notified when more writing can occur.

@@ -5,6 +5,7 @@ import static com.esotericsoftware.minlog.Log.*;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -17,7 +18,6 @@ import java.util.Set;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
-import com.esotericsoftware.kryo.serialize.FieldSerializer;
 import com.esotericsoftware.kryo.util.IntHashMap;
 import com.esotericsoftware.kryonet.FrameworkMessage.DiscoverHost;
 import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
@@ -43,6 +43,7 @@ public class Server implements EndPoint {
 	private volatile boolean shutdown;
 	private Object updateLock = new Object();
 	private Thread updateThread;
+	private ByteBuffer emptyBuffer = ByteBuffer.allocate(0);
 
 	private Listener dispatchListener = new Listener() {
 		public void connected (Connection connection) {
@@ -286,7 +287,7 @@ public class Server implements EndPoint {
 						continue;
 					}
 					if (object instanceof DiscoverHost) {
-						udp.datagramChannel.send(udp.writeBuffer, fromAddress);
+						udp.datagramChannel.send(emptyBuffer, fromAddress);
 						if (DEBUG) debug("kryonet", "Responded to host discovery from: " + fromAddress);
 						continue;
 					}
