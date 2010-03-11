@@ -172,6 +172,7 @@ public class Server implements EndPoint {
 
 				if (keyConnection != null) {
 					// Must be a TCP read or write operation.
+					if (udp != null && keyConnection.udpRemoteAddress == null) continue;
 					if ((ops & SelectionKey.OP_READ) == SelectionKey.OP_READ) {
 						try {
 							while (true) {
