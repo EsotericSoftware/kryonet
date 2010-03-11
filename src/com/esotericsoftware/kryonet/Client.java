@@ -331,42 +331,40 @@ public class Client extends Connection implements EndPoint {
 		DatagramSocket socket = null;
 		try {
 			socket = new DatagramSocket();
-			try {
-				int classID = kryo.getRegisteredClass(DiscoverHost.class).getID();
-				ByteBuffer dataBuffer = ByteBuffer.allocate(4);
-				IntSerializer.put(dataBuffer, classID, true);
-				dataBuffer.flip();
-				byte[] data = new byte[dataBuffer.limit()];
-				dataBuffer.get(data);
-				for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-					for (InetAddress address : Collections.list(iface.getInetAddresses())) {
-						if (!address.isSiteLocalAddress()) continue;
-						// Java 1.5 doesn't support getting the subnet mask, so try the two most common.
-						byte[] ip = address.getAddress();
-						ip[3] = -1; // 255.255.255.0
-						socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
-						ip[2] = -1; // 255.255.0.0
-						socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
-					}
+			int classID = kryo.getRegisteredClass(DiscoverHost.class).getID();
+			ByteBuffer dataBuffer = ByteBuffer.allocate(4);
+			IntSerializer.put(dataBuffer, classID, true);
+			dataBuffer.flip();
+			byte[] data = new byte[dataBuffer.limit()];
+			dataBuffer.get(data);
+			for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+				for (InetAddress address : Collections.list(iface.getInetAddresses())) {
+					if (!address.isSiteLocalAddress()) continue;
+					// Java 1.5 doesn't support getting the subnet mask, so try the two most common.
+					byte[] ip = address.getAddress();
+					ip[3] = -1; // 255.255.255.0
+					socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
+					ip[2] = -1; // 255.255.0.0
+					socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
 				}
-				if (DEBUG) debug("kryonet", "Broadcasted host discovery on port: " + udpPort);
-
-				socket.setSoTimeout(timeoutMillis);
-				DatagramPacket packet = new DatagramPacket(new byte[0], 0);
-				try {
-					socket.receive(packet);
-				} catch (SocketTimeoutException ex) {
-					if (INFO) debug("kryonet", "Host discovery timed out.");
-					return null;
-				}
-				if (INFO) debug("kryonet", "Discovered server: " + packet.getAddress());
-				return packet.getAddress();
-			} finally {
-				socket.close();
 			}
+			if (DEBUG) debug("kryonet", "Broadcasted host discovery on port: " + udpPort);
+
+			socket.setSoTimeout(timeoutMillis);
+			DatagramPacket packet = new DatagramPacket(new byte[0], 0);
+			try {
+				socket.receive(packet);
+			} catch (SocketTimeoutException ex) {
+				if (INFO) info("kryonet", "Host discovery timed out.");
+				return null;
+			}
+			if (INFO) info("kryonet", "Discovered server: " + packet.getAddress());
+			return packet.getAddress();
 		} catch (IOException ex) {
 			if (ERROR) error("kryonet", "Host discovery failed.", ex);
 			return null;
+		} finally {
+			if (socket != null) socket.close();
 		}
 	}
 }
