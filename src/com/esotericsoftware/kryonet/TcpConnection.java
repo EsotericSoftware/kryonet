@@ -65,6 +65,9 @@ class TcpConnection {
 
 	public void connect (Selector selector, SocketAddress remoteAddress, int timeout) throws IOException {
 		close();
+		writeBuffer.clear();
+		readBuffer.clear();
+		readBuffer.flip();
 		try {
 			SocketChannel socketChannel = selector.provider().openSocketChannel();
 			Socket socket = socketChannel.socket();
