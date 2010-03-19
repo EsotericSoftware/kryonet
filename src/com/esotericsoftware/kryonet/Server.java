@@ -169,48 +169,48 @@ public class Server implements EndPoint {
 				iter.remove();
 				try {
 					int ops = selectionKey.readyOps();
-					Connection keyConnection = (Connection)selectionKey.attachment();
+					Connection fromConnection = (Connection)selectionKey.attachment();
 
-					if (keyConnection != null) {
+					if (fromConnection != null) {
 						// Must be a TCP read or write operation.
-						if (udp != null && keyConnection.udpRemoteAddress == null) continue;
+						if (udp != null && fromConnection.udpRemoteAddress == null) continue;
 						if ((ops & SelectionKey.OP_READ) == SelectionKey.OP_READ) {
 							try {
 								while (true) {
-									Object object = keyConnection.tcp.readObject(keyConnection);
+									Object object = fromConnection.tcp.readObject(fromConnection);
 									if (object == null) break;
 									if (DEBUG) {
 										String objectString = object == null ? "null" : object.getClass().getSimpleName();
 										if (!(object instanceof FrameworkMessage)) {
-											debug("kryonet", keyConnection + " received TCP: " + objectString);
+											debug("kryonet", fromConnection + " received TCP: " + objectString);
 										} else if (TRACE) {
-											trace("kryonet", keyConnection + " received TCP: " + objectString);
+											trace("kryonet", fromConnection + " received TCP: " + objectString);
 										}
 									}
-									keyConnection.notifyReceived(object);
+									fromConnection.notifyReceived(object);
 								}
 							} catch (IOException ex) {
 								if (TRACE) {
-									trace("kryonet", "Unable to read TCP from: " + keyConnection, ex);
+									trace("kryonet", "Unable to read TCP from: " + fromConnection, ex);
 								} else if (DEBUG) {
-									debug("kryonet", keyConnection + " update: " + ex.getMessage());
+									debug("kryonet", fromConnection + " update: " + ex.getMessage());
 								}
-								keyConnection.close();
+								fromConnection.close();
 							} catch (SerializationException ex) {
-								if (ERROR) error("kryonet", "Error reading TCP from connection: " + keyConnection, ex);
-								keyConnection.close();
+								if (ERROR) error("kryonet", "Error reading TCP from connection: " + fromConnection, ex);
+								fromConnection.close();
 							}
 						}
 						if ((ops & SelectionKey.OP_WRITE) == SelectionKey.OP_WRITE) {
 							try {
-								keyConnection.tcp.writeOperation();
+								fromConnection.tcp.writeOperation();
 							} catch (IOException ex) {
 								if (TRACE) {
-									trace("kryonet", "Unable to write TCP to connection: " + keyConnection, ex);
+									trace("kryonet", "Unable to write TCP to connection: " + fromConnection, ex);
 								} else if (DEBUG) {
-									debug("kryonet", keyConnection + " update: " + ex.getMessage());
+									debug("kryonet", fromConnection + " update: " + ex.getMessage());
 								}
-								keyConnection.close();
+								fromConnection.close();
 							}
 						}
 						continue;
@@ -232,14 +232,12 @@ public class Server implements EndPoint {
 					try {
 						fromAddress = udp.readFromAddress();
 					} catch (IOException ex) {
-						IOException ioEx = new IOException("Error reading UDP data.");
-						ioEx.initCause(ex);
-						throw ioEx;
+						if (WARN) warn("kryonet", "Error reading UDP data.", ex);
+						continue;
 					}
 					if (fromAddress == null) continue;
 
 					Connection[] connections = this.connections;
-					Connection fromConnection = null;
 					for (int i = 0, n = connections.length; i < n; i++) {
 						Connection connection = connections[i];
 						if (fromAddress.equals(connection.udpRemoteAddress)) {
@@ -253,16 +251,8 @@ public class Server implements EndPoint {
 						object = udp.readObject(fromConnection);
 					} catch (SerializationException ex) {
 						if (WARN) {
-							Connection errorConnection = null;
-							for (int i = 0, n = connections.length; i < n; i++) {
-								Connection connection = connections[i];
-								if (fromAddress.equals(connection.udpRemoteAddress)) {
-									errorConnection = connection;
-									break;
-								}
-							}
-							if (errorConnection != null) {
-								if (ERROR) error("kryonet", "Error reading UDP from connection: " + errorConnection, ex);
+							if (fromConnection != null) {
+								if (ERROR) error("kryonet", "Error reading UDP from connection: " + fromConnection, ex);
 							} else
 								warn("kryonet", "Error reading UDP from unregistered address: " + fromAddress, ex);
 						}
@@ -290,8 +280,12 @@ public class Server implements EndPoint {
 							continue;
 						}
 						if (object instanceof DiscoverHost) {
-							udp.datagramChannel.send(emptyBuffer, fromAddress);
-							if (DEBUG) debug("kryonet", "Responded to host discovery from: " + fromAddress);
+							try {
+								udp.datagramChannel.send(emptyBuffer, fromAddress);
+								if (DEBUG) debug("kryonet", "Responded to host discovery from: " + fromAddress);
+							} catch (IOException ex) {
+								if (WARN) warn("kryonet", "Error replying to host discovery from: " + fromAddress, ex);
+							}
 							continue;
 						}
 					}
