@@ -1,14 +1,8 @@
 
 package com.esotericsoftware.kryonet;
 
-import static com.esotericsoftware.minlog.Log.LEVEL_DEBUG;
-
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.minlog.Log;
 
 public class ReuseTest extends KryoNetTestCase {
 	public void testPingPong () throws IOException {
@@ -59,9 +53,8 @@ public class ReuseTest extends KryoNetTestCase {
 			server.close();
 		}
 		assertEquals(count * 2 * 2, stringCount.get());
-		server.stop();
-		client.stop();
 
+		stopEndPoints();
 		waitForThreads(5000);
 	}
 }
