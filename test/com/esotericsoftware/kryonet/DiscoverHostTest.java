@@ -4,7 +4,7 @@ package com.esotericsoftware.kryonet;
 import java.io.IOException;
 import java.net.InetAddress;
 
-public class BroadcastTest extends KryoNetTestCase {
+public class DiscoverHostTest extends KryoNetTestCase {
 	public void testBroadcast () throws IOException {
 		// This server exists solely to reply to Client#discoverHost.
 		// It wouldn't be needed if the real server was using UDP.
