@@ -478,7 +478,7 @@ public class ObjectSpace {
 		kryo.register(Object[].class);
 		kryo.register(InvokeMethod.class);
 
-		FieldSerializer serializer = (FieldSerializer)kryo.register(InvokeMethodResult.class);
+		FieldSerializer serializer = (FieldSerializer)kryo.register(InvokeMethodResult.class).getSerializer();
 		serializer.getField("objectID").setClass(int.class, new IntSerializer(true));
 
 		kryo.register(InvocationHandler.class, new Serializer() {
