@@ -14,7 +14,6 @@ import com.esotericsoftware.kryo.Context;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
-import com.esotericsoftware.kryonet.TcpConnection.WriteBufferOverflowException;
 
 /**
  * Represents a TCP and optionally a UDP connection between a {@link Client} and a {@link Server}. If either underlying connection
@@ -41,7 +40,7 @@ public class Connection {
 	}
 
 	/**
-	 * Returns the server assigned ID. Will be -1 if this connection is not connected.
+	 * Returns the server assigned ID. Will return -1 if this connection is not connected.
 	 */
 	public int getID () {
 		return id;
@@ -68,20 +67,17 @@ public class Connection {
 			}
 			return length;
 		} catch (IOException ex) {
-			if (DEBUG) {
-				if (id != -1)
-					debug("kryonet", "Unable to send TCP with connection: " + this, ex);
-				else
-					debug("kryonet", "Unable to send TCP.", ex);
-			}
-			return 0;
-		} catch (WriteBufferOverflowException ex) {
-			if (WARN) warn(ex.getMessage(), ex.getCause());
+			if (DEBUG) debug("kryonet", "Unable to send TCP with connection: " + this, ex);
 			close();
 			return 0;
 		} catch (SerializationException ex) {
+			if (ex.causedByBufferOverflow()) {
+				if (DEBUG) debug("kryonet", "Unable to send TCP with connection: " + this, ex);
+			} else {
+				if (ERROR) error("kryonet", "Unable to send TCP with connection: " + this, ex);
+			}
 			close();
-			throw ex;
+			return 0;
 		}
 	}
 
@@ -119,17 +115,17 @@ public class Connection {
 			}
 			return length;
 		} catch (IOException ex) {
-			if (DEBUG) {
-				if (id != -1)
-					debug("kryonet", "Unable to send UDP with connection: " + this, ex);
-				else
-					debug("kryonet", "Unable to send UDP.", ex);
-			}
+			if (DEBUG) debug("kryonet", "Unable to send UDP with connection: " + this, ex);
+			close();
 			return 0;
 		} catch (SerializationException ex) {
-			if (ERROR) error("kryonet", "Error sending UDP with connection: " + this, ex);
+			if (ex.causedByBufferOverflow()) {
+				if (DEBUG) debug("kryonet", "Unable to send UDP with connection: " + this, ex);
+			} else {
+				if (ERROR) error("kryonet", "Unable to send UDP with connection: " + this, ex);
+			}
 			close();
-			throw ex;
+			return 0;
 		}
 	}
 
