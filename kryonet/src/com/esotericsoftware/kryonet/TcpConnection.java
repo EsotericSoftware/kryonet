@@ -169,7 +169,7 @@ class TcpConnection {
 	/**
 	 * This method is thread safe.
 	 */
-	public int send (Connection connection, Object object) throws IOException, WriteBufferOverflowException {
+	public int send (Connection connection, Object object) throws IOException {
 		SocketChannel socketChannel = this.socketChannel;
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
 		synchronized (writeLock) {
@@ -181,10 +181,6 @@ class TcpConnection {
 			context.setRemoteEntityID(connection.id);
 			try {
 				kryo.writeClassAndObject(writeBuffer, object);
-			} catch (BufferOverflowException ex) {
-				close();
-				throw new WriteBufferOverflowException("Write buffer overflow, position/limit/capacity: " + writeBuffer.position()
-					+ "/" + writeBuffer.limit() + "/" + writeBuffer.capacity(), ex);
 			} catch (SerializationException ex) {
 				writeBuffer.position(start);
 				throw new SerializationException("Unable to serialize object of type: " + object.getClass().getName(), ex);
@@ -248,11 +244,5 @@ class TcpConnection {
 
 	public boolean needsKeepAlive (long time) {
 		return socketChannel != null && keepAliveTime > 0 && time - lastCommunicationTime > keepAliveTime;
-	}
-
-	static class WriteBufferOverflowException extends Exception {
-		public WriteBufferOverflowException (String message, Throwable cause) {
-			super(message, cause);
-		}
 	}
 }
