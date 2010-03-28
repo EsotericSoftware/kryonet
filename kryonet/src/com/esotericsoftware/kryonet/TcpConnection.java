@@ -174,7 +174,12 @@ class TcpConnection {
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
 		synchronized (writeLock) {
 			int start = writeBuffer.position();
-			writeBuffer.position(start + 1); // Allow 1 byte for the data length (the ideal case).
+			try {
+				writeBuffer.position(start + 1); // Allow 1 byte for the data length (the ideal case).
+			} catch (IllegalArgumentException ex) {
+				throw new SerializationException("Buffer limit exceeded writing object of type: " + object.getClass().getName(),
+					new BufferOverflowException());
+			}
 
 			Context context = Kryo.getContext();
 			context.put("connection", connection);
