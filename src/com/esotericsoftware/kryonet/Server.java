@@ -163,6 +163,7 @@ public class Server implements EndPoint {
 		}
 		Set<SelectionKey> keys = selector.selectedKeys();
 		synchronized (keys) {
+			UdpConnection udp = this.udp;
 			outer: //
 			for (Iterator<SelectionKey> iter = keys.iterator(); iter.hasNext();) {
 				SelectionKey selectionKey = iter.next();
@@ -217,6 +218,8 @@ public class Server implements EndPoint {
 					}
 
 					if ((ops & SelectionKey.OP_ACCEPT) == SelectionKey.OP_ACCEPT) {
+						ServerSocketChannel serverChannel = this.serverChannel;
+						if (serverChannel == null) continue;
 						try {
 							SocketChannel socketChannel = serverChannel.accept();
 							if (socketChannel != null) acceptOperation(socketChannel);
@@ -338,6 +341,7 @@ public class Server implements EndPoint {
 		Connection connection = newConnection();
 		connection.initialize(kryo, writeBufferSize, readBufferSize);
 		connection.endPoint = this;
+		UdpConnection udp = this.udp;
 		if (udp != null) connection.udp = udp;
 		try {
 			SelectionKey selectionKey = connection.tcp.accept(selector, socketChannel);
@@ -482,6 +486,8 @@ public class Server implements EndPoint {
 		for (int i = 0, n = connections.length; i < n; i++)
 			connections[i].close();
 		connections = new Connection[0];
+
+		ServerSocketChannel serverChannel = this.serverChannel;
 		if (serverChannel != null) {
 			try {
 				serverChannel.close();
@@ -489,12 +495,15 @@ public class Server implements EndPoint {
 			} catch (IOException ex) {
 				if (DEBUG) debug("kryonet", "Unable to close server.", ex);
 			}
-			serverChannel = null;
+			this.serverChannel = null;
 		}
+
+		UdpConnection udp = this.udp;
 		if (udp != null) {
 			udp.close();
-			udp = null;
+			this.udp = null;
 		}
+
 		// Select one last time to complete closing the socket.
 		synchronized (updateLock) {
 			selector.wakeup();
