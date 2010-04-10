@@ -1,8 +1,6 @@
 
 package com.esotericsoftware.kryonet.compress;
 
-import static com.esotericsoftware.minlog.Log.LEVEL_TRACE;
-
 import java.io.IOException;
 
 import com.esotericsoftware.kryo.Kryo;
@@ -13,8 +11,6 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.KryoNetTestCase;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
-import com.esotericsoftware.kryonet.compress.DeflateTest.SomeData;
-import com.esotericsoftware.minlog.Log;
 
 public class DeltaTest extends KryoNetTestCase {
 	public void testDelta () throws IOException {

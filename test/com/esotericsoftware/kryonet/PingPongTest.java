@@ -1,13 +1,10 @@
 
 package com.esotericsoftware.kryonet;
 
-import static com.esotericsoftware.minlog.Log.LEVEL_DEBUG;
-
 import java.io.IOException;
 import java.util.Arrays;
 
 import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.minlog.Log;
 
 public class PingPongTest extends KryoNetTestCase {
 	public void testPingPong () throws IOException {

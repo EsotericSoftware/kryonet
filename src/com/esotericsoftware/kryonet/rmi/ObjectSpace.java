@@ -13,7 +13,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashMap;
 import java.util.PriorityQueue;
 
 import com.esotericsoftware.kryo.CustomSerialization;
@@ -29,8 +28,8 @@ import com.esotericsoftware.kryonet.FrameworkMessage;
 import com.esotericsoftware.kryonet.Listener;
 
 /**
- * Allows methods on registered objects to be invoked remotely over TCP. Remote method invocation has more overhead (usually 4
- * bytes) than just sending an object.
+ * Allows methods on registered objects to be invoked remotely over TCP. It costs at least 3 bytes more to use remote method
+ * invocation than just sending the parameters. If the method has a return value, there is an additional cost of 1 byte.
  * @author Nathan Sweet <misc@n4te.com>
  */
 public class ObjectSpace {
@@ -159,8 +158,11 @@ public class ObjectSpace {
 	 */
 	protected void invoke (Connection connection, Object target, InvokeMethod invokeMethod) {
 		if (DEBUG) {
-			String argString = Arrays.deepToString(invokeMethod.args);
-			argString = argString.substring(1, argString.length() - 1);
+			String argString = "";
+			if (invokeMethod.args != null) {
+				argString = Arrays.deepToString(invokeMethod.args);
+				argString = argString.substring(1, argString.length() - 1);
+			}
 			debug("kryonet", connection + " received: " + target.getClass().getSimpleName() + "#" + invokeMethod.method.getName()
 				+ "(" + argString + ")");
 		}
@@ -290,8 +292,11 @@ public class ObjectSpace {
 			}
 			int length = connection.sendTCP(invokeMethod);
 			if (DEBUG) {
-				String argString = Arrays.deepToString(args);
-				argString = argString.substring(1, argString.length() - 1);
+				String argString = "";
+				if (args != null) {
+					argString = Arrays.deepToString(args);
+					argString = argString.substring(1, argString.length() - 1);
+				}
 				debug("kryonet", connection + " sent: " + method.getDeclaringClass().getSimpleName() + "#" + method.getName() + "("
 					+ argString + ") (" + length + ")");
 			}
@@ -360,7 +365,6 @@ public class ObjectSpace {
 
 		public void writeObjectData (Kryo kryo, ByteBuffer buffer) {
 			IntSerializer.put(buffer, objectID, true);
-			buffer.put(responseID);
 
 			int methodClassID = kryo.getRegisteredClass(method.getDeclaringClass()).getID();
 			IntSerializer.put(buffer, methodClassID, true);
@@ -379,11 +383,12 @@ public class ObjectSpace {
 				serializer.setLength(argCount);
 				serializer.writeObjectData(buffer, args);
 			}
+
+			if (method.getReturnType() != void.class) buffer.put(responseID);
 		}
 
 		public void readObjectData (Kryo kryo, ByteBuffer buffer) {
 			objectID = IntSerializer.get(buffer, true);
-			responseID = buffer.get();
 
 			int methodClassID = IntSerializer.get(buffer, true);
 			Class methodClass = kryo.getRegisteredClass(methodClassID).getType();
@@ -396,6 +401,8 @@ public class ObjectSpace {
 				serializer.setLength(argCount);
 				args = serializer.readObjectData(buffer, Object[].class);
 			}
+
+			if (method.getReturnType() != void.class) responseID = buffer.get();
 		}
 	}
 
