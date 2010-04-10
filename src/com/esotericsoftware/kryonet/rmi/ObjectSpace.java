@@ -17,6 +17,7 @@ import java.util.PriorityQueue;
 
 import com.esotericsoftware.kryo.CustomSerialization;
 import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.SerializationException;
 import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.serialize.ArraySerializer;
 import com.esotericsoftware.kryo.serialize.FieldSerializer;
@@ -393,7 +394,11 @@ public class ObjectSpace {
 			int methodClassID = IntSerializer.get(buffer, true);
 			Class methodClass = kryo.getRegisteredClass(methodClassID).getType();
 			byte methodIndex = buffer.get();
-			method = getMethods(methodClass)[methodIndex];
+			try {
+				method = getMethods(methodClass)[methodIndex];
+			} catch (IndexOutOfBoundsException ex) {
+				throw new SerializationException("Invalid method index " + methodIndex + " for class: " + methodClass.getName());
+			}
 
 			int argCount = method.getParameterTypes().length;
 			if (argCount > 0) {
