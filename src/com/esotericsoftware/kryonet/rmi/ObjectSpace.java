@@ -19,7 +19,6 @@ import com.esotericsoftware.kryo.CustomSerialization;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
 import com.esotericsoftware.kryo.Serializer;
-import com.esotericsoftware.kryo.serialize.ArraySerializer;
 import com.esotericsoftware.kryo.serialize.FieldSerializer;
 import com.esotericsoftware.kryo.serialize.IntSerializer;
 import com.esotericsoftware.kryo.util.IntHashMap;
@@ -29,14 +28,17 @@ import com.esotericsoftware.kryonet.FrameworkMessage;
 import com.esotericsoftware.kryonet.Listener;
 
 /**
- * Allows methods on registered objects to be invoked remotely over TCP. It costs at least 3 bytes more to use remote method
- * invocation than just sending the parameters. If the method has a return value, there is an additional cost of 1 byte.
+ * Allows methods on registered objects to be invoked remotely over TCP.
+ * <p>
+ * It costs at least 2 bytes more to use remote method invocation than just sending the parameters. If the method has a return
+ * value, an extra byte is written. If the type of a parameter is not final (note primitives are final) then an extra byte is
+ * written for that parameter.
  * @author Nathan Sweet <misc@n4te.com>
  */
 public class ObjectSpace {
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
-	static private final HashMap<Class, Method[]> methodCache = new HashMap();
+	static private final HashMap<Class, CachedMethod[]> methodCache = new HashMap();
 
 	final IntHashMap idToObject = new IntHashMap();
 	Connection[] connections = {};
@@ -370,19 +372,22 @@ public class ObjectSpace {
 			int methodClassID = kryo.getRegisteredClass(method.getDeclaringClass()).getID();
 			IntSerializer.put(buffer, methodClassID, true);
 
-			Method[] methods = getMethods(method.getDeclaringClass());
-			for (int i = 0, n = methods.length; i < n; i++) {
-				if (methods[i].equals(method)) {
+			CachedMethod[] cachedMethods = getMethods(kryo, method.getDeclaringClass());
+			CachedMethod cachedMethod = null;
+			for (int i = 0, n = cachedMethods.length; i < n; i++) {
+				cachedMethod = cachedMethods[i];
+				if (cachedMethod.method.equals(method)) {
 					buffer.put((byte)i);
 					break;
 				}
 			}
 
-			int argCount = method.getParameterTypes().length;
-			if (argCount > 0) {
-				ArraySerializer serializer = new ArraySerializer(kryo);
-				serializer.setLength(argCount);
-				serializer.writeObjectData(buffer, args);
+			for (int i = 0, n = cachedMethod.serializers.length; i < n; i++) {
+				Serializer serializer = cachedMethod.serializers[i];
+				if (serializer != null)
+					serializer.writeObject(buffer, args[i]);
+				else
+					kryo.writeClassAndObject(buffer, args[i]);
 			}
 
 			if (method.getReturnType() != void.class) buffer.put(responseID);
@@ -394,17 +399,21 @@ public class ObjectSpace {
 			int methodClassID = IntSerializer.get(buffer, true);
 			Class methodClass = kryo.getRegisteredClass(methodClassID).getType();
 			byte methodIndex = buffer.get();
+			CachedMethod cachedMethod;
 			try {
-				method = getMethods(methodClass)[methodIndex];
+				cachedMethod = getMethods(kryo, methodClass)[methodIndex];
 			} catch (IndexOutOfBoundsException ex) {
 				throw new SerializationException("Invalid method index " + methodIndex + " for class: " + methodClass.getName());
 			}
+			method = cachedMethod.method;
 
-			int argCount = method.getParameterTypes().length;
-			if (argCount > 0) {
-				ArraySerializer serializer = new ArraySerializer(kryo);
-				serializer.setLength(argCount);
-				args = serializer.readObjectData(buffer, Object[].class);
+			args = new Object[cachedMethod.serializers.length];
+			for (int i = 0, n = args.length; i < n; i++) {
+				Serializer serializer = cachedMethod.serializers[i];
+				if (serializer != null)
+					args[i] = serializer.readObject(buffer, method.getParameterTypes()[i]);
+				else
+					args[i] = kryo.readClassAndObject(buffer);
 			}
 
 			if (method.getReturnType() != void.class) responseID = buffer.get();
@@ -420,9 +429,10 @@ public class ObjectSpace {
 		public Object result;
 	}
 
-	static Method[] getMethods (Class type) {
-		Method[] cachedMethods = methodCache.get(type);
+	static CachedMethod[] getMethods (Kryo kryo, Class type) {
+		CachedMethod[] cachedMethods = methodCache.get(type);
 		if (cachedMethods != null) return cachedMethods;
+
 		ArrayList<Method> allMethods = new ArrayList();
 		Class nextClass = type;
 		while (nextClass != null && nextClass != Object.class) {
@@ -455,9 +465,20 @@ public class ObjectSpace {
 		}
 
 		int n = methods.size();
-		cachedMethods = new Method[n];
-		for (int i = 0; i < n; i++)
-			cachedMethods[i] = methods.poll();
+		cachedMethods = new CachedMethod[n];
+		for (int i = 0; i < n; i++) {
+			CachedMethod cachedMethod = new CachedMethod();
+			cachedMethod.method = methods.poll();
+
+			// Store the serializer for each final parameter.
+			Class[] parameterTypes = cachedMethod.method.getParameterTypes();
+			cachedMethod.serializers = new Serializer[parameterTypes.length];
+			for (int ii = 0, nn = parameterTypes.length; ii < nn; ii++)
+				if (Modifier.isFinal(parameterTypes[ii].getModifiers()))
+					cachedMethod.serializers[ii] = kryo.getSerializer(parameterTypes[ii]);
+
+			cachedMethods[i] = cachedMethod;
+		}
 		methodCache.put(type, cachedMethods);
 		return cachedMethods;
 	}
@@ -507,5 +528,10 @@ public class ObjectSpace {
 				return (T)object;
 			}
 		});
+	}
+
+	static class CachedMethod {
+		Method method;
+		Serializer[] serializers;
 	}
 }
