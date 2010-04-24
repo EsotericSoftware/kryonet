@@ -31,7 +31,7 @@ import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
  */
 public class Server implements EndPoint {
 	private final Kryo kryo;
-	private final int writeBufferSize, readBufferSize;
+	private final int writeBufferSize, objectBufferSize;
 	private final Selector selector;
 	private ServerSocketChannel serverChannel;
 	private UdpConnection udp;
@@ -67,10 +67,10 @@ public class Server implements EndPoint {
 	};
 
 	/**
-	 * Creates a Server with a write buffer size of 16384 and a read buffer size of 4096.
+	 * Creates a Server with a write buffer size of 16384 and an object buffer size of 2048.
 	 */
 	public Server () {
-		this(16384, 4096);
+		this(16384, 2048);
 	}
 
 	/**
@@ -83,15 +83,14 @@ public class Server implements EndPoint {
 	 *           The write buffer should be sized at least as large as the largest object that will be sent, plus some head room to
 	 *           allow for some serialized objects to be queued in case the buffer is temporarily not writable. The amount of head
 	 *           room needed is dependent upon the size of objects being sent and how often they are sent.
-	 * @param readBufferSize One (using only TCP) or three (using both TCP and UDP) buffers of this size are allocated for each
-	 *           connected client. Bytes are read from the socket and placed in the read buffer. As soon as enough bytes are
-	 *           received, the object is deserialized and the bytes are removed from the read buffer.
+	 * @param objectBufferSize Two (using only TCP) or four (using both TCP and UDP) buffers of this size are allocated. Buffers of
+	 *           this size are used to hold the bytes for an object until it can be sent over the network or deserialized.
 	 *           <p>
-	 *           The read buffer should be sized at least as large as the largest object that will be received.
+	 *           The object buffer should be sized at least as large as the largest object that will be sent or received.
 	 */
-	public Server (int writeBufferSize, int readBufferSize) {
+	public Server (int writeBufferSize, int objectBufferSize) {
 		this.writeBufferSize = writeBufferSize;
-		this.readBufferSize = readBufferSize;
+		this.objectBufferSize = objectBufferSize;
 
 		kryo = new Kryo();
 		kryo.register(RegisterTCP.class);
@@ -135,7 +134,7 @@ public class Server implements EndPoint {
 				if (DEBUG) debug("kryonet", "Accepting connections on port: " + tcpPort + "/TCP");
 
 				if (udpPort != -1) {
-					udp = new UdpConnection(kryo, readBufferSize);
+					udp = new UdpConnection(kryo, objectBufferSize);
 					udp.bind(selector, udpPort);
 					if (DEBUG) debug("kryonet", "Accepting connections on port: " + udpPort + "/UDP");
 				}
@@ -339,7 +338,7 @@ public class Server implements EndPoint {
 
 	private void acceptOperation (SocketChannel socketChannel) {
 		Connection connection = newConnection();
-		connection.initialize(kryo, writeBufferSize, readBufferSize);
+		connection.initialize(kryo, writeBufferSize, objectBufferSize);
 		connection.endPoint = this;
 		UdpConnection udp = this.udp;
 		if (udp != null) connection.udp = udp;

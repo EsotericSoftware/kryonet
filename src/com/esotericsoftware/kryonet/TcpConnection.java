@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
-import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -26,18 +25,18 @@ class TcpConnection {
 
 	SocketChannel socketChannel;
 	int keepAliveTime = 59000;
-	final ByteBuffer readBuffer, writeBuffer;
+	final ByteBuffer readBuffer, writeBuffer, tempWriteBuffer;
 	private final Kryo kryo;
-	private final ByteBuffer writeLengthBuffer = ByteBuffer.allocateDirect(4);
 	private SelectionKey selectionKey;
 	private final Object writeLock = new Object();
 	private int currentObjectLength;
 	private long lastCommunicationTime;
 
-	public TcpConnection (Kryo kryo, int writeBufferSize, int readBufferSize) {
+	public TcpConnection (Kryo kryo, int writeBufferSize, int objectBufferSize) {
 		this.kryo = kryo;
 		writeBuffer = ByteBuffer.allocateDirect(writeBufferSize);
-		readBuffer = ByteBuffer.allocateDirect(readBufferSize);
+		tempWriteBuffer = ByteBuffer.allocateDirect(objectBufferSize);
+		readBuffer = ByteBuffer.allocateDirect(objectBufferSize);
 		readBuffer.flip();
 	}
 
@@ -110,6 +109,7 @@ class TcpConnection {
 				if (!IntSerializer.canRead(readBuffer, true)) return null;
 			}
 			currentObjectLength = IntSerializer.get(readBuffer, true);
+
 			if (currentObjectLength <= 0) throw new SerializationException("Invalid object length: " + currentObjectLength);
 			if (currentObjectLength > readBuffer.capacity())
 				throw new SerializationException("Unable to read object larger than read buffer: " + currentObjectLength);
@@ -147,23 +147,22 @@ class TcpConnection {
 
 	public void writeOperation () throws IOException {
 		synchronized (writeLock) {
-			// If it was not a partial write, clear the OP_WRITE flag. Otherwise wait to be notified when more writing can occur.
-			if (writeToSocket()) selectionKey.interestOps(SelectionKey.OP_READ);
+			writeBuffer.flip();
+			if (writeToSocket(writeBuffer)) {
+				// Write successful, clear OP_WRITE.
+				selectionKey.interestOps(SelectionKey.OP_READ);
+			}
+			writeBuffer.compact();
 		}
 	}
 
-	private boolean writeToSocket () throws IOException {
+	private boolean writeToSocket (ByteBuffer buffer) throws IOException {
 		SocketChannel socketChannel = this.socketChannel;
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
-		writeBuffer.flip();
-		while (writeBuffer.hasRemaining())
-			if (socketChannel.write(writeBuffer) == 0) break;
-		boolean wasFullWrite = !writeBuffer.hasRemaining();
-		writeBuffer.compact();
-
+		while (buffer.hasRemaining())
+			if (socketChannel.write(buffer) == 0) break;
 		if (keepAliveTime > 0) lastCommunicationTime = System.currentTimeMillis();
-
-		return wasFullWrite;
+		return !buffer.hasRemaining();
 	}
 
 	/**
@@ -173,65 +172,47 @@ class TcpConnection {
 		SocketChannel socketChannel = this.socketChannel;
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
 		synchronized (writeLock) {
-			int start = writeBuffer.position();
-			try {
-				writeBuffer.position(start + 1); // Allow 1 byte for the data length (the ideal case).
-			} catch (IllegalArgumentException ex) {
-				throw new SerializationException("Buffer limit exceeded writing object of type: " + object.getClass().getName(),
-					new BufferOverflowException());
-			}
+			tempWriteBuffer.clear();
+			tempWriteBuffer.position(5); // Allow room for the data length.
 
+			// Write data.
 			Context context = Kryo.getContext();
 			context.put("connection", connection);
 			context.setRemoteEntityID(connection.id);
 			try {
-				kryo.writeClassAndObject(writeBuffer, object);
+				kryo.writeClassAndObject(tempWriteBuffer, object);
 			} catch (SerializationException ex) {
-				writeBuffer.position(start);
 				throw new SerializationException("Unable to serialize object of type: " + object.getClass().getName(), ex);
 			}
+			tempWriteBuffer.flip();
 
-			// Write data length to socket.
-			int dataLength = writeBuffer.position() - start - 1;
-			int lengthLength;
-			if (dataLength <= 127) {
-				// Ideally it fits in one byte.
-				lengthLength = 1;
-				writeBuffer.put(start, (byte)dataLength);
-			} else {
-				// Write it to a temporary buffer.
-				writeLengthBuffer.clear();
-				lengthLength = IntSerializer.put(writeLengthBuffer, dataLength, true);
-				writeLengthBuffer.flip();
-				// Put last byte in writeBuffer.
-				int lastIndex = writeLengthBuffer.limit() - 1;
-				writeBuffer.put(start, writeLengthBuffer.get(lastIndex));
-				writeLengthBuffer.limit(lastIndex);
-				// Write the rest to the socket.
-				while (writeLengthBuffer.hasRemaining())
-					if (socketChannel.write(writeLengthBuffer) == 0) break;
-				if (writeLengthBuffer.hasRemaining()) {
-					// If writing the length failed (rare), shift the data over.
-					byte[] temp = context.getByteArray(dataLength + 1);
-					writeBuffer.position(start);
-					writeBuffer.get(temp);
-					writeBuffer.position(start);
-					writeBuffer.put(writeLengthBuffer);
-					writeBuffer.put(temp);
-				}
+			// Write data length.
+			int dataLength = tempWriteBuffer.limit() - 5;
+			int lengthLength = IntSerializer.length(dataLength, true);
+			int start = 5 - lengthLength;
+			tempWriteBuffer.position(start);
+			IntSerializer.put(tempWriteBuffer, dataLength, true);
+			tempWriteBuffer.position(start);
+
+			if (writeBuffer.position() > 0) {
+				// Other data is already queued, append this data to be written later.
+				writeBuffer.put(tempWriteBuffer);
+			} else if (!writeToSocket(tempWriteBuffer)) {
+				// A partial write occurred, queue the remaining data to be written later.
+				writeBuffer.put(tempWriteBuffer);
+				// Set OP_WRITE to be notified when more writing can occur.
+				selectionKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
 			}
 
 			if (DEBUG || TRACE) {
 				float percentage = writeBuffer.position() / (float)writeBuffer.capacity();
-				if (TRACE) trace("kryonet", connection + " TCP write buffer utilization: " + percentage + "%");
 				if (DEBUG && percentage > 0.75f)
 					debug("kryonet", connection + " TCP write buffer is approaching capacity: " + percentage + "%");
+				else if (TRACE && percentage > 0.25f)
+					trace("kryonet", connection + " TCP write buffer utilization: " + percentage + "%");
 			}
 
-			// If it was a partial write, set the OP_WRITE flag to be notified when more writing can occur.
-			if (!writeToSocket()) selectionKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-
-			return lengthLength + dataLength;
+			return tempWriteBuffer.limit();
 		}
 	}
 

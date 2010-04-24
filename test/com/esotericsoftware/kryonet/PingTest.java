@@ -7,8 +7,6 @@ import java.util.Timer;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 
 public class PingTest extends KryoNetTestCase {
-	private Timer timer = new Timer();
-
 	public void testPing () throws IOException {
 		final Server server = new Server();
 		startEndPoint(server);

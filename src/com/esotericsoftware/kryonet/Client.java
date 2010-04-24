@@ -41,7 +41,7 @@ public class Client extends Connection implements EndPoint {
 	private Thread updateThread;
 
 	/**
-	 * Creates a Client with a write buffer size of 8192 and a read buffer size of 2048.
+	 * Creates a Client with a write buffer size of 8192 and an object buffer size of 2048.
 	 */
 	public Client () {
 		this(8192, 2048);
@@ -57,13 +57,12 @@ public class Client extends Connection implements EndPoint {
 	 *           The write buffer should be sized at least as large as the largest object that will be sent, plus some head room to
 	 *           allow for some serialized objects to be queued in case the buffer is temporarily not writable. The amount of head
 	 *           room needed is dependent upon the size of objects being sent and how often they are sent.
-	 * @param readBufferSize One (using only TCP) or three (using both TCP and UDP) buffers of this size are allocated. Bytes are
-	 *           read from the socket and placed in the read buffer. As soon as enough bytes are received, the object is
-	 *           deserialized and the bytes are removed from the read buffer.
+	 * @param objectBufferSize Two (using only TCP) or four (using both TCP and UDP) buffers of this size are allocated. Buffers of
+	 *           this size are used to hold the bytes for an object until it can be sent over the network or deserialized.
 	 *           <p>
-	 *           The read buffer should be sized at least as large as the largest object that will be received.
+	 *           The object buffer should be sized at least as large as the largest object that will be sent or received.
 	 */
-	public Client (int writeBufferSize, int readBufferSize) {
+	public Client (int writeBufferSize, int objectBufferSize) {
 		super();
 		endPoint = this;
 
@@ -74,7 +73,7 @@ public class Client extends Connection implements EndPoint {
 		kryo.register(DiscoverHost.class);
 		kryo.register(Ping.class);
 
-		initialize(kryo, writeBufferSize, readBufferSize);
+		initialize(kryo, writeBufferSize, objectBufferSize);
 
 		try {
 			selector = Selector.open();

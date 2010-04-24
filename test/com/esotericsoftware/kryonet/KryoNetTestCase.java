@@ -16,7 +16,7 @@ abstract public class KryoNetTestCase extends TestCase {
 
 	private ArrayList<Thread> threads = new ArrayList();
 	ArrayList<EndPoint> endPoints = new ArrayList();
-	private Timer timer = new Timer();
+	private Timer timer;
 	boolean fail;
 
 	public KryoNetTestCase () {
@@ -26,6 +26,11 @@ abstract public class KryoNetTestCase extends TestCase {
 
 	protected void setUp () throws Exception {
 		System.out.println("---- " + getClass().getSimpleName());
+		timer = new Timer();
+	}
+
+	protected void tearDown () throws Exception {
+		timer.cancel();
 	}
 
 	public void startEndPoint (EndPoint endPoint) {
