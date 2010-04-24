@@ -60,7 +60,7 @@ public class PingPongTest extends KryoNetTestCase {
 		waitForThreads(5000);
 	}
 
-	static public void register (Kryo kryo) {
+	private void register (Kryo kryo) {
 		kryo.register(String[].class);
 		kryo.register(int[].class);
 		kryo.register(short[].class);
