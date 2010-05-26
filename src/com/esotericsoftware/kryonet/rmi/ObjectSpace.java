@@ -474,8 +474,7 @@ public class ObjectSpace {
 			Class[] parameterTypes = cachedMethod.method.getParameterTypes();
 			cachedMethod.serializers = new Serializer[parameterTypes.length];
 			for (int ii = 0, nn = parameterTypes.length; ii < nn; ii++)
-				if (Modifier.isFinal(parameterTypes[ii].getModifiers()))
-					cachedMethod.serializers[ii] = kryo.getSerializer(parameterTypes[ii]);
+				if (Serializer.isFinal(parameterTypes[ii])) cachedMethod.serializers[ii] = kryo.getSerializer(parameterTypes[ii]);
 
 			cachedMethods[i] = cachedMethod;
 		}
