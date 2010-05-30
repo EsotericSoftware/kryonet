@@ -28,11 +28,13 @@ import com.esotericsoftware.kryonet.FrameworkMessage;
 import com.esotericsoftware.kryonet.Listener;
 
 /**
- * Allows methods on registered objects to be invoked remotely over TCP.
+ * Allows methods on objects to be invoked remotely over TCP. Objects are {@link #register(int, Object) registered} with an ID.
+ * The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
+ * {@link #getRemoteObject(Connection, int, Class) access} registered objects.
  * <p>
  * It costs at least 2 bytes more to use remote method invocation than just sending the parameters. If the method has a return
- * value, an extra byte is written. If the type of a parameter is not final (note primitives are final) then an extra byte is
- * written for that parameter.
+ * value which is not {@link RemoteObject#setNonBlocking(boolean, boolean) ignored}, an extra byte is written. If the type of a
+ * parameter is not final (note primitives are final) then an extra byte is written for that parameter.
  * @author Nathan Sweet <misc@n4te.com>
  */
 public class ObjectSpace {
@@ -68,7 +70,8 @@ public class ObjectSpace {
 	};
 
 	/**
-	 * Creates an ObjectSpace with no connections.
+	 * Creates an ObjectSpace with no connections. Connections must be {@link #addConnection(Connection) added} to allow the remote
+	 * end of the connections to access objects in this ObjectSpace.
 	 */
 	public ObjectSpace () {
 		synchronized (instancesLock) {
@@ -91,7 +94,7 @@ public class ObjectSpace {
 	/**
 	 * Registers an object to allow the remote end of the ObjectSpace's connections to access it using the specified ID.
 	 * <p>
-	 * If a connection is added to multiple ObjectSpaces, the same object ID should not be used in more than one of those
+	 * If a connection is added to multiple ObjectSpaces, the same object ID should not be registered in more than one of those
 	 * ObjectSpaces.
 	 * @see #getRemoteObject(Connection, int, Class...)
 	 */
@@ -190,8 +193,8 @@ public class ObjectSpace {
 	}
 
 	/**
-	 * Identical to {@link #getRemoteObject(Connection, int, Class...)} except returns the object as the specified interface type.
-	 * The returned object still implements {@link RemoteObject}.
+	 * Identical to {@link #getRemoteObject(Connection, int, Class...)} except returns the object cast to the specified interface
+	 * type. The returned object still implements {@link RemoteObject}.
 	 */
 	static public <T> T getRemoteObject (final Connection connection, int objectID, Class<T> iface) {
 		return (T)getRemoteObject(connection, objectID, new Class[] {iface});
@@ -199,7 +202,9 @@ public class ObjectSpace {
 
 	/**
 	 * Returns a proxy object that implements the specified interfaces. Methods invoked on the proxy object will be invoked
-	 * remotely on the object with the specified ID in the ObjectSpace for the specified connection.
+	 * remotely on the object with the specified ID in the ObjectSpace for the specified connection. If the remote end of the
+	 * connection has not {@link #addConnection(Connection) added} the connection to the ObjectSpace, the remote method invocations
+	 * will be ignored.
 	 * <p>
 	 * Methods that return a value will throw {@link TimeoutException} if the response is not received with the
 	 * {@link RemoteObject#setResponseTimeout(int) response timeout}.

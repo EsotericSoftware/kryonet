@@ -57,10 +57,11 @@ public class Client extends Connection implements EndPoint {
 	 *           The write buffer should be sized at least as large as the largest object that will be sent, plus some head room to
 	 *           allow for some serialized objects to be queued in case the buffer is temporarily not writable. The amount of head
 	 *           room needed is dependent upon the size of objects being sent and how often they are sent.
-	 * @param objectBufferSize Two (using only TCP) or four (using both TCP and UDP) buffers of this size are allocated. Buffers of
-	 *           this size are used to hold the bytes for an object until it can be sent over the network or deserialized.
+	 * @param objectBufferSize Two (using only TCP) or four (using both TCP and UDP) buffers of this size are allocated. These
+	 *           buffers are used to hold the bytes for a single object graph until it can be sent over the network or
+	 *           deserialized.
 	 *           <p>
-	 *           The object buffer should be sized at least as large as the largest object that will be sent or received.
+	 *           The object buffers should be sized at least as large as the largest object that will be sent or received.
 	 */
 	public Client (int writeBufferSize, int objectBufferSize) {
 		super();
