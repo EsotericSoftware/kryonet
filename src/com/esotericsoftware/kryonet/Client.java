@@ -32,6 +32,10 @@ import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
  * @author Nathan Sweet <misc@n4te.com>
  */
 public class Client extends Connection implements EndPoint {
+	static {
+		System.setProperty("java.net.preferIPv6Addresses", "false");
+	}
+
 	private final Kryo kryo;
 	private Selector selector;
 	private boolean udpRegistered;
