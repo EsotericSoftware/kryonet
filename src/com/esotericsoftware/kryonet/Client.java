@@ -43,6 +43,10 @@ public class Client extends Connection implements EndPoint {
 	private volatile boolean shutdown;
 	private final Object updateLock = new Object();
 	private Thread updateThread;
+	private int connectTimeout;
+	private InetAddress connectHost;
+	private int connectTcpPort;
+	private int connectUdpPort;
 
 	/**
 	 * Creates a Client with a write buffer size of 8192 and an object buffer size of 2048.
@@ -120,10 +124,17 @@ public class Client extends Connection implements EndPoint {
 	 * <p>
 	 * Because the framework must perform some minimal communication before the connection is considered successful,
 	 * {@link #update(int)} must be called on a separate thread during the connection process.
+	 * @throws IllegalStateException if called from the connection's update thread.
 	 * @throws IOException if the client could not be opened or connecting times out.
 	 */
 	public void connect (int timeout, InetAddress host, int tcpPort, int udpPort) throws IOException {
 		if (host == null) throw new IllegalArgumentException("host cannot be null.");
+		if (Thread.currentThread() == getUpdateThread())
+			throw new IllegalStateException("Cannot connect on the connection's update thread.");
+		this.connectTimeout = timeout;
+		this.connectHost = host;
+		this.connectTcpPort = tcpPort;
+		this.connectUdpPort = udpPort;
 		close();
 		try {
 			if (udpPort != -1) udp = new UdpConnection(kryo, tcp.readBuffer.capacity());
@@ -136,13 +147,13 @@ public class Client extends Connection implements EndPoint {
 			}
 
 			// Wait for RegisterTCP.
-			while (System.currentTimeMillis() < endTime && id == -1) {
+			while (System.currentTimeMillis() < endTime && !isConnected) {
 				try {
 					Thread.sleep(50);
 				} catch (InterruptedException ignored) {
 				}
 			}
-			if (id == -1) {
+			if (!isConnected) {
 				throw new SocketTimeoutException("Connected, but timed out during TCP registration.\n"
 					+ "Note: Client#update must be called in a separate thread during connect.");
 			}
@@ -175,6 +186,24 @@ public class Client extends Connection implements EndPoint {
 	}
 
 	/**
+	 * Calls {@link #connect(int, InetAddress, int) connect} with the values last passed to connect.
+	 * @throws IllegalStateException if connect has never been called.
+	 */
+	public void reconnect () throws IOException {
+		reconnect(connectTimeout);
+	}
+
+	/**
+	 * Calls {@link #connect(int, InetAddress, int) connect} with the specified timeout and the other values last passed to
+	 * connect.
+	 * @throws IllegalStateException if connect has never been called.
+	 */
+	public void reconnect (int timeout) throws IOException {
+		if (connectHost == null) throw new IllegalStateException("This client has never been connected.");
+		connect(connectTimeout, connectHost, connectTcpPort, connectUdpPort);
+	}
+
+	/**
 	 * Reads or writes any pending data for this client. Multiple threads should not call this method at the same time.
 	 * @param timeout Wait for up to the specified milliseconds for data to be ready to process. May be zero to return immediately
 	 *           if there is no data to process.
@@ -199,8 +228,11 @@ public class Client extends Connection implements EndPoint {
 							while (true) {
 								Object object = tcp.readObject(this);
 								if (object == null) break;
-								if (id == -1 || (udp != null && !udpRegistered)) {
-									if (object instanceof RegisterTCP) setID(((RegisterTCP)object).connectionID);
+								if (!isConnected || (udp != null && !udpRegistered)) {
+									if (object instanceof RegisterTCP) {
+										id = ((RegisterTCP)object).connectionID;
+										setConnected(true);
+									}
 									if (object instanceof RegisterUDP) {
 										synchronized (udpRegistrationLock) {
 											udpRegistered = true;
@@ -210,7 +242,7 @@ public class Client extends Connection implements EndPoint {
 											debug("kryonet", "Port " + udp.datagramChannel.socket().getLocalPort() + "/UDP connected to: "
 												+ udp.connectedAddress);
 									}
-									if (id != -1 && (udp == null || udpRegistered)) notifyConnected();
+									if (isConnected && (udp == null || udpRegistered)) notifyConnected();
 									continue;
 								}
 								if (DEBUG) {
@@ -240,7 +272,7 @@ public class Client extends Connection implements EndPoint {
 				}
 			}
 		}
-		if (id != -1) {
+		if (isConnected) {
 			long time = System.currentTimeMillis();
 			if (tcp.needsKeepAlive(time)) sendTCP(FrameworkMessage.keepAlive);
 			if (udp != null && udpRegistered && udp.needsKeepAlive(time)) sendUDP(FrameworkMessage.keepAlive);
@@ -255,12 +287,12 @@ public class Client extends Connection implements EndPoint {
 				update(500);
 			} catch (IOException ex) {
 				if (TRACE) {
-					if (id != -1)
+					if (isConnected)
 						trace("kryonet", "Unable to update connection: " + this, ex);
 					else
 						trace("kryonet", "Unable to update connection.", ex);
 				} else if (DEBUG) {
-					if (id != -1)
+					if (isConnected)
 						debug("kryonet", this + " update: " + ex.getMessage());
 					else
 						debug("kryonet", "Unable to update connection: " + ex.getMessage());
@@ -268,7 +300,7 @@ public class Client extends Connection implements EndPoint {
 				close();
 			} catch (SerializationException ex) {
 				if (ERROR) {
-					if (id != -1)
+					if (isConnected)
 						error("kryonet", "Error updating connection: " + this, ex);
 					else
 						error("kryonet", "Error updating connection.", ex);
@@ -313,13 +345,6 @@ public class Client extends Connection implements EndPoint {
 	public void removeListener (Listener listener) {
 		super.removeListener(listener);
 		if (TRACE) trace("kryonet", "Client listener removed.");
-	}
-
-	/**
-	 * Returns true if connected to a {@link Server}. Note this client could become disconnected at any time.
-	 */
-	public boolean isConnected () {
-		return id != -1;
 	}
 
 	public Thread getUpdateThread () {
