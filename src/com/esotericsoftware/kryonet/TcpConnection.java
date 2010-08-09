@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -194,14 +195,19 @@ class TcpConnection {
 			IntSerializer.put(tempWriteBuffer, dataLength, true);
 			tempWriteBuffer.position(start);
 
-			if (writeBuffer.position() > 0) {
-				// Other data is already queued, append this data to be written later.
-				writeBuffer.put(tempWriteBuffer);
-			} else if (!writeToSocket(tempWriteBuffer)) {
-				// A partial write occurred, queue the remaining data to be written later.
-				writeBuffer.put(tempWriteBuffer);
-				// Set OP_WRITE to be notified when more writing can occur.
-				selectionKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+			try {
+				if (writeBuffer.position() > 0) {
+					// Other data is already queued, append this data to be written later.
+					writeBuffer.put(tempWriteBuffer);
+				} else if (!writeToSocket(tempWriteBuffer)) {
+					// A partial write occurred, queue the remaining data to be written later.
+					writeBuffer.put(tempWriteBuffer);
+					// Set OP_WRITE to be notified when more writing can occur.
+					selectionKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+				}
+			} catch (BufferOverflowException ex) {
+				throw new SerializationException(
+					"Write buffer limit exceeded writing object of type: " + object.getClass().getName(), ex);
 			}
 
 			if (DEBUG || TRACE) {
