@@ -349,7 +349,8 @@ public class Server implements EndPoint {
 
 			int id = nextConnectionID++;
 			if (nextConnectionID == -1) nextConnectionID = 1;
-			connection.setID(id);
+			connection.id = id;
+			connection.setConnected(true);
 			connection.addListener(dispatchListener);
 
 			if (udp == null)

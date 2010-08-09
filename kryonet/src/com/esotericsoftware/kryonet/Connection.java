@@ -31,6 +31,7 @@ public class Connection {
 	private Object listenerLock = new Object();
 	private long lastPingTime;
 	private int returnTripTime;
+	boolean isConnected;
 
 	protected Connection () {
 	}
@@ -40,10 +41,18 @@ public class Connection {
 	}
 
 	/**
-	 * Returns the server assigned ID. Will return -1 if this connection is not connected.
+	 * Returns the server assigned ID. Will return -1 if this connection has never been connected or the last assigned ID if this
+	 * connection has been disconnected.
 	 */
 	public int getID () {
 		return id;
+	}
+
+	/**
+	 * Returns true if this connection is connected to the remote end. Note that a connection can become disconnected at any time.
+	 */
+	public boolean isConnected () {
+		return isConnected;
 	}
 
 	/**
@@ -91,7 +100,7 @@ public class Connection {
 		if (object == null) throw new IllegalArgumentException("object cannot be null.");
 		SocketAddress address = udpRemoteAddress;
 		if (address == null && udp != null) address = udp.connectedAddress;
-		if (address == null && id != -1) throw new IllegalStateException("Connection is not connected via UDP.");
+		if (address == null && isConnected) throw new IllegalStateException("Connection is not connected via UDP.");
 
 		Context context = Kryo.getContext();
 		context.put("connection", this);
@@ -130,13 +139,15 @@ public class Connection {
 	}
 
 	public void close () {
+		boolean wasConnected = isConnected;
+		isConnected = false;
 		tcp.close();
 		if (udp != null && udp.connectedAddress != null) udp.close();
-		if (id != -1) {
+		if (wasConnected) {
 			notifyDisconnected();
 			if (INFO) info("kryonet", this + " disconnected.");
 		}
-		setID(-1);
+		setConnected(false);
 	}
 
 	/**
@@ -294,8 +305,8 @@ public class Connection {
 		return "Connection " + id;
 	}
 
-	void setID (int id) {
-		this.id = id;
-		if (id != -1 && name == null) name = "Connection " + id;
+	void setConnected (boolean isConnected) {
+		this.isConnected = isConnected;
+		if (isConnected && name == null) name = "Connection " + id;
 	}
 }
