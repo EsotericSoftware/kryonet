@@ -39,7 +39,7 @@ public class ReconnectTest extends KryoNetTestCase {
 					public void run () {
 						try {
 							System.out.println("Reconnecting: " + reconnetCount.get());
-							client.connect(5000, host, tcpPort);
+							client.reconnect();
 						} catch (IOException ex) {
 							ex.printStackTrace();
 						}
