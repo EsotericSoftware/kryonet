@@ -14,6 +14,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.security.AccessControlException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
@@ -33,7 +34,11 @@ import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
  */
 public class Client extends Connection implements EndPoint {
 	static {
-		System.setProperty("java.net.preferIPv6Addresses", "false");
+		try {
+			// Needed for NIO selectors on Android 2.2.
+			System.setProperty("java.net.preferIPv6Addresses", "false");
+		} catch (AccessControlException ignored) {
+		}
 	}
 
 	private final Kryo kryo;
