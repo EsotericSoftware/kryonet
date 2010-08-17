@@ -8,6 +8,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import java.nio.BufferOverflowException;
 import java.nio.channels.SocketChannel;
 
 import com.esotericsoftware.kryo.Context;
@@ -80,7 +81,7 @@ public class Connection {
 			close();
 			return 0;
 		} catch (SerializationException ex) {
-			if (ex.causedByBufferOverflow()) {
+			if (ex.causedBy(BufferOverflowException.class)) {
 				if (DEBUG) debug("kryonet", "Unable to send TCP with connection: " + this, ex);
 			} else {
 				if (ERROR) error("kryonet", "Unable to send TCP with connection: " + this, ex);
@@ -128,7 +129,7 @@ public class Connection {
 			close();
 			return 0;
 		} catch (SerializationException ex) {
-			if (ex.causedByBufferOverflow()) {
+			if (ex.causedBy(BufferOverflowException.class)) {
 				if (DEBUG) debug("kryonet", "Unable to send UDP with connection: " + this, ex);
 			} else {
 				if (ERROR) error("kryonet", "Unable to send UDP with connection: " + this, ex);
