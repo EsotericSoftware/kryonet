@@ -210,6 +210,7 @@ public class Connection {
 		synchronized (listenerLock) {
 			Listener[] listeners = this.listeners;
 			int n = listeners.length;
+			if (n == 0) return;
 			Listener[] newListeners = new Listener[n - 1];
 			for (int i = 0, ii = 0; i < n; i++) {
 				Listener copyListener = listeners[i];

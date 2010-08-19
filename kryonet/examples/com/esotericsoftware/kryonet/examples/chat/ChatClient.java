@@ -48,6 +48,12 @@ public class ChatClient {
 		Network.register(client);
 
 		client.addListener(new Listener() {
+			public void connected (Connection connection) {
+				RegisterName registerName = new RegisterName();
+				registerName.name = "meow";
+				client.sendTCP(registerName);
+			}
+
 			public void received (Connection connection, Object object) {
 				if (object instanceof UpdateNames) {
 					UpdateNames updateNames = (UpdateNames)object;
@@ -108,13 +114,11 @@ public class ChatClient {
 			public void run () {
 				try {
 					client.connect(5000, host, Network.port);
+					// Server communication after connection can go here, or in Listener#connected().
 				} catch (IOException ex) {
 					ex.printStackTrace();
 					System.exit(1);
 				}
-				RegisterName registerName = new RegisterName();
-				registerName.name = name;
-				client.sendTCP(registerName);
 			}
 		}.start();
 	}

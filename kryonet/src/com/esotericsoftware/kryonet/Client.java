@@ -141,6 +141,7 @@ public class Client extends Connection implements EndPoint {
 		this.connectTcpPort = tcpPort;
 		this.connectUdpPort = udpPort;
 		close();
+		id = -1;
 		try {
 			if (udpPort != -1) udp = new UdpConnection(kryo, tcp.readBuffer.capacity());
 
@@ -152,13 +153,13 @@ public class Client extends Connection implements EndPoint {
 			}
 
 			// Wait for RegisterTCP.
-			while (System.currentTimeMillis() < endTime && !isConnected) {
+			while (System.currentTimeMillis() < endTime && id == -1) {
 				try {
 					Thread.sleep(50);
 				} catch (InterruptedException ignored) {
 				}
 			}
-			if (!isConnected) {
+			if (id == -1) {
 				throw new SocketTimeoutException("Connected, but timed out during TCP registration.\n"
 					+ "Note: Client#update must be called in a separate thread during connect.");
 			}
@@ -184,6 +185,9 @@ public class Client extends Connection implements EndPoint {
 					if (!udpRegistered) throw new SocketTimeoutException("Connected, but timed out during UDP registration.");
 				}
 			}
+
+			setConnected(true);
+			notifyConnected();
 		} catch (IOException ex) {
 			close();
 			throw ex;
@@ -234,11 +238,9 @@ public class Client extends Connection implements EndPoint {
 								Object object = tcp.readObject(this);
 								if (object == null) break;
 								if (!isConnected || (udp != null && !udpRegistered)) {
-									if (object instanceof RegisterTCP) {
+									if (object instanceof RegisterTCP)
 										id = ((RegisterTCP)object).connectionID;
-										setConnected(true);
-									}
-									if (object instanceof RegisterUDP) {
+									else if (object instanceof RegisterUDP) {
 										synchronized (udpRegistrationLock) {
 											udpRegistered = true;
 											udpRegistrationLock.notifyAll();
@@ -247,7 +249,6 @@ public class Client extends Connection implements EndPoint {
 											debug("kryonet", "Port " + udp.datagramChannel.socket().getLocalPort() + "/UDP connected to: "
 												+ udp.connectedAddress);
 									}
-									if (isConnected && (udp == null || udpRegistered)) notifyConnected();
 									continue;
 								}
 								if (DEBUG) {
