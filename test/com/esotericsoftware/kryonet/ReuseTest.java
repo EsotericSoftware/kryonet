@@ -55,6 +55,6 @@ public class ReuseTest extends KryoNetTestCase {
 		assertEquals(count * 2 * 2, stringCount.get());
 
 		stopEndPoints();
-		waitForThreads(5000);
+		waitForThreads(10000);
 	}
 }

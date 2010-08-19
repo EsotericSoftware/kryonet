@@ -103,11 +103,12 @@ public class ChatRmiClient {
 			public void run () {
 				try {
 					client.connect(5000, host, Network.port);
+					// Server communication after connection can go here, or in Listener#connected().
+					player.registerName(name);
 				} catch (IOException ex) {
 					ex.printStackTrace();
 					System.exit(1);
 				}
-				player.registerName(name);
 			}
 		}.start();
 	}
