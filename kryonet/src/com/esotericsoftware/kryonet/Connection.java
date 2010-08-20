@@ -32,7 +32,7 @@ public class Connection {
 	private Object listenerLock = new Object();
 	private long lastPingTime;
 	private int returnTripTime;
-	boolean isConnected;
+	volatile boolean isConnected;
 
 	protected Connection () {
 	}

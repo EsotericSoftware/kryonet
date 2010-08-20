@@ -43,7 +43,8 @@ public class Client extends Connection implements EndPoint {
 
 	private final Kryo kryo;
 	private Selector selector;
-	private boolean udpRegistered;
+	private volatile boolean tcpRegistered, udpRegistered;
+	private Object tcpRegistrationLock = new Object();
 	private Object udpRegistrationLock = new Object();
 	private volatile boolean shutdown;
 	private final Object updateLock = new Object();
@@ -147,47 +148,48 @@ public class Client extends Connection implements EndPoint {
 
 			long endTime;
 			synchronized (updateLock) {
+				tcpRegistered = false;
 				selector.wakeup();
 				endTime = System.currentTimeMillis() + timeout;
 				tcp.connect(selector, new InetSocketAddress(host, tcpPort), 5000);
 			}
 
 			// Wait for RegisterTCP.
-			while (System.currentTimeMillis() < endTime && id == -1) {
-				try {
-					Thread.sleep(50);
-				} catch (InterruptedException ignored) {
+			synchronized (tcpRegistrationLock) {
+				while (!tcpRegistered && System.currentTimeMillis() < endTime) {
+					try {
+						tcpRegistrationLock.wait(100);
+					} catch (InterruptedException ignored) {
+					}
 				}
-			}
-			if (id == -1) {
-				throw new SocketTimeoutException("Connected, but timed out during TCP registration.\n"
-					+ "Note: Client#update must be called in a separate thread during connect.");
+				if (!tcpRegistered) {
+					throw new SocketTimeoutException("Connected, but timed out during TCP registration.\n"
+						+ "Note: Client#update must be called in a separate thread during connect.");
+				}
 			}
 
 			if (udpPort != -1) {
 				InetSocketAddress udpAddress = new InetSocketAddress(host, udpPort);
 				synchronized (updateLock) {
+					udpRegistered = false;
 					selector.wakeup();
 					udp.connect(selector, udpAddress);
 				}
 
 				// Wait for RegisterUDP reply.
 				synchronized (udpRegistrationLock) {
-					while (System.currentTimeMillis() < endTime && !udpRegistered) {
+					while (!udpRegistered && System.currentTimeMillis() < endTime) {
 						RegisterUDP registerUDP = new RegisterUDP();
 						registerUDP.connectionID = id;
 						udp.send(this, registerUDP, udpAddress);
 						try {
-							udpRegistrationLock.wait(200);
+							udpRegistrationLock.wait(100);
 						} catch (InterruptedException ignored) {
 						}
 					}
 					if (!udpRegistered) throw new SocketTimeoutException("Connected, but timed out during UDP registration.");
 				}
 			}
-
-			setConnected(true);
-			notifyConnected();
 		} catch (IOException ex) {
 			close();
 			throw ex;
@@ -237,20 +239,38 @@ public class Client extends Connection implements EndPoint {
 							while (true) {
 								Object object = tcp.readObject(this);
 								if (object == null) break;
-								if (!isConnected || (udp != null && !udpRegistered)) {
-									if (object instanceof RegisterTCP)
+								if (!tcpRegistered) {
+									if (object instanceof RegisterTCP) {
 										id = ((RegisterTCP)object).connectionID;
-									else if (object instanceof RegisterUDP) {
+										synchronized (tcpRegistrationLock) {
+											tcpRegistered = true;
+											tcpRegistrationLock.notifyAll();
+										}
+										if (TRACE) trace("kryonet", this + " received TCP: RegisterTCP");
+										if (udp == null) {
+											setConnected(true);
+											notifyConnected();
+										}
+									}
+									continue;
+								}
+								if (udp != null && !udpRegistered) {
+									if (object instanceof RegisterUDP) {
 										synchronized (udpRegistrationLock) {
 											udpRegistered = true;
 											udpRegistrationLock.notifyAll();
 										}
-										if (DEBUG)
+										if (TRACE) trace("kryonet", this + " received UDP: RegisterUDP");
+										if (DEBUG) {
 											debug("kryonet", "Port " + udp.datagramChannel.socket().getLocalPort() + "/UDP connected to: "
 												+ udp.connectedAddress);
+										}
+										setConnected(true);
+										notifyConnected();
 									}
 									continue;
 								}
+								if (!isConnected) continue;
 								if (DEBUG) {
 									String objectString = object == null ? "null" : object.getClass().getSimpleName();
 									if (!(object instanceof FrameworkMessage)) {
@@ -332,7 +352,6 @@ public class Client extends Connection implements EndPoint {
 
 	public void close () {
 		super.close();
-		udpRegistered = false;
 		// Select one last time to complete closing the socket.
 		synchronized (updateLock) {
 			selector.wakeup();
