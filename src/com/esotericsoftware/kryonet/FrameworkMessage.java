@@ -41,7 +41,7 @@ public interface FrameworkMessage {
 	 * Internal message to determine round trip time.
 	 */
 	static public class Ping implements FrameworkMessage {
-		long time;
+		public int id;
 		public boolean isReply;
 	}
 }

@@ -218,7 +218,7 @@ class TcpConnection {
 					trace("kryonet", connection + " TCP write buffer utilization: " + percentage + "%");
 			}
 
-			return tempWriteBuffer.limit();
+			return tempWriteBuffer.limit() - start;
 		}
 	}
 

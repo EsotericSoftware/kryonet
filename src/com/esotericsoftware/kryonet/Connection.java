@@ -30,7 +30,8 @@ public class Connection {
 	InetSocketAddress udpRemoteAddress;
 	private Listener[] listeners = {};
 	private Object listenerLock = new Object();
-	private long lastPingTime;
+	private int lastPingID;
+	private long lastPingSendTime;
 	private int returnTripTime;
 	volatile boolean isConnected;
 
@@ -158,7 +159,8 @@ public class Connection {
 	 */
 	public void updateReturnTripTime () {
 		Ping ping = new Ping();
-		lastPingTime = ping.time = System.currentTimeMillis();
+		ping.id = lastPingID++;
+		lastPingSendTime = System.currentTimeMillis();
 		sendTCP(ping);
 	}
 
@@ -249,8 +251,8 @@ public class Connection {
 		if (object instanceof Ping) {
 			Ping ping = (Ping)object;
 			if (ping.isReply) {
-				if (ping.time == lastPingTime) {
-					returnTripTime = (int)(System.currentTimeMillis() - ping.time);
+				if (ping.id == lastPingID - 1) {
+					returnTripTime = (int)(System.currentTimeMillis() - lastPingSendTime);
 					if (TRACE) trace("kryonet", this + " return trip time: " + returnTripTime);
 				}
 			} else {
