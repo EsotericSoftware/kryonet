@@ -78,10 +78,14 @@ public class Client extends Connection implements EndPoint {
 	 *           The object buffers should be sized at least as large as the largest object that will be sent or received.
 	 */
 	public Client (int writeBufferSize, int objectBufferSize) {
+		this(writeBufferSize, objectBufferSize, new Kryo());
+	}
+
+	public Client (int writeBufferSize, int objectBufferSize, Kryo kryo) {
 		super();
 		endPoint = this;
 
-		kryo = new Kryo();
+		this.kryo = kryo;
 		kryo.register(RegisterTCP.class);
 		kryo.register(RegisterUDP.class);
 		kryo.register(KeepAlive.class);
@@ -142,6 +146,12 @@ public class Client extends Connection implements EndPoint {
 		this.connectTcpPort = tcpPort;
 		this.connectUdpPort = udpPort;
 		close();
+		if (INFO) {
+			if (udpPort != -1)
+				info("Connecting: " + host + ":" + tcpPort + "/" + udpPort);
+			else
+				info("Connecting: " + host + ":" + tcpPort);
+		}
 		id = -1;
 		try {
 			if (udpPort != -1) udp = new UdpConnection(kryo, tcp.readBuffer.capacity());
@@ -227,11 +237,22 @@ public class Client extends Connection implements EndPoint {
 			selector.select(timeout);
 		else
 			selector.selectNow();
+
 		Set<SelectionKey> keys = selector.selectedKeys();
 		synchronized (keys) {
 			for (Iterator<SelectionKey> iter = keys.iterator(); iter.hasNext();) {
 				SelectionKey selectionKey = iter.next();
 				iter.remove();
+
+				// if (id == 1) {
+				// try {
+				// long lag = 600 + (long)(Math.random() * 2000);
+				// System.out.println(lag);
+				// Thread.sleep(lag);
+				// } catch (InterruptedException ex) {
+				// }
+				// }
+
 				try {
 					int ops = selectionKey.readyOps();
 					if ((ops & SelectionKey.OP_READ) == SelectionKey.OP_READ) {

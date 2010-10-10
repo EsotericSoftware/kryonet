@@ -90,10 +90,14 @@ public class Server implements EndPoint {
 	 *           The object buffers should be sized at least as large as the largest object that will be sent or received.
 	 */
 	public Server (int writeBufferSize, int objectBufferSize) {
+		this(writeBufferSize, objectBufferSize, new Kryo());
+	}
+
+	public Server (int writeBufferSize, int objectBufferSize, Kryo kryo) {
 		this.writeBufferSize = writeBufferSize;
 		this.objectBufferSize = objectBufferSize;
 
-		kryo = new Kryo();
+		this.kryo = kryo;
 		kryo.register(RegisterTCP.class);
 		kryo.register(RegisterUDP.class);
 		kryo.register(KeepAlive.class);
@@ -391,6 +395,8 @@ public class Server implements EndPoint {
 
 		pendingConnections.remove(connection.id);
 	}
+
+	// BOZO - Provide mechanism for sending to multiple clients without serializing multiple times.
 
 	public void sendToAllTCP (Object object) {
 		Connection[] connections = this.connections;
