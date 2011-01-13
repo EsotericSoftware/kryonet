@@ -9,6 +9,7 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -17,6 +18,7 @@ import com.esotericsoftware.kryo.Context;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
 import com.esotericsoftware.kryo.serialize.IntSerializer;
+import com.esotericsoftware.kryo.util.Util;
 
 /**
  * @author Nathan Sweet <misc@n4te.com>
@@ -32,12 +34,13 @@ class TcpConnection {
 	private final Object writeLock = new Object();
 	private int currentObjectLength;
 	private long lastCommunicationTime;
+	boolean bufferPositionFix;
 
 	public TcpConnection (Kryo kryo, int writeBufferSize, int objectBufferSize) {
 		this.kryo = kryo;
-		writeBuffer = ByteBuffer.allocateDirect(writeBufferSize);
-		tempWriteBuffer = ByteBuffer.allocateDirect(objectBufferSize);
-		readBuffer = ByteBuffer.allocateDirect(objectBufferSize);
+		writeBuffer = ByteBuffer.allocate(writeBufferSize);
+		tempWriteBuffer = ByteBuffer.allocate(objectBufferSize);
+		readBuffer = ByteBuffer.allocate(objectBufferSize);
 		readBuffer.flip();
 	}
 
@@ -104,6 +107,7 @@ class TcpConnection {
 				readBuffer.compact();
 				int bytesRead = socketChannel.read(readBuffer);
 				readBuffer.flip();
+
 				if (bytesRead == -1) throw new SocketException("Connection is closed.");
 				if (keepAliveTime > 0) lastCommunicationTime = System.currentTimeMillis();
 
@@ -160,8 +164,14 @@ class TcpConnection {
 	private boolean writeToSocket (ByteBuffer buffer) throws IOException {
 		SocketChannel socketChannel = this.socketChannel;
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
+
+		if (bufferPositionFix) {
+			buffer.compact();
+			buffer.flip();
+		}
 		while (buffer.hasRemaining())
 			if (socketChannel.write(buffer) == 0) break;
+
 		if (keepAliveTime > 0) lastCommunicationTime = System.currentTimeMillis();
 		return !buffer.hasRemaining();
 	}

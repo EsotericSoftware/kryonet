@@ -296,6 +296,15 @@ public class Connection {
 	}
 
 	/**
+	 * Workaround for broken NIO networking on Android 1.6. If true, the underlying NIO buffer is always copied to the beginning of
+	 * the buffer before being given to the SocketChannel for sending. The Harmony SocketChannel implementation in Android 1.6
+	 * ignores the buffer position, always copying from the beginning of the buffer. This is fixed in Android 2.0+.
+	 */
+	public void setBufferPositionFix (boolean bufferPositionFix) {
+		tcp.bufferPositionFix = bufferPositionFix;
+	}
+
+	/**
 	 * Sets the friendly name of this connection. This is returned by {@link #toString()} and is useful for providing application
 	 * specific identifying information in the logging. May be null for the default name of "Connection X", where X is the
 	 * connection ID.
