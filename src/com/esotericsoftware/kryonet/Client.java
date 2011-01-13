@@ -197,7 +197,7 @@ public class Client extends Connection implements EndPoint {
 						} catch (InterruptedException ignored) {
 						}
 					}
-					if (!udpRegistered) throw new SocketTimeoutException("Connected, but timed out during UDP registration.");
+					if (!udpRegistered) throw new SocketTimeoutException("Connected, but timed out during UDP registration: " + host + ":" + udpPort);
 				}
 			}
 		} catch (IOException ex) {
@@ -396,7 +396,7 @@ public class Client extends Connection implements EndPoint {
 	public Thread getUpdateThread () {
 		return updateThread;
 	}
-
+	
 	/**
 	 * Broadcasts a UDP message on the LAN to discover any running servers.
 	 * @param udpPort The UDP port of the server.
