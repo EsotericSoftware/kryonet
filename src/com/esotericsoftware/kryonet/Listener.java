@@ -1,13 +1,16 @@
 
 package com.esotericsoftware.kryonet;
 
-import static com.esotericsoftware.minlog.Log.*;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import static com.esotericsoftware.minlog.Log.*;
 
 /**
  * Used to be notified about connection events.
@@ -41,7 +44,7 @@ public class Listener {
 	 * class uses a HashMap lookup and (cached) reflection, so is not as efficient as writing a series of "instanceof" statements.
 	 */
 	static public class ReflectionListener extends Listener {
-		private HashMap<Class, Method> classToMethod = new HashMap();
+		private final HashMap<Class, Method> classToMethod = new HashMap();
 
 		public void received (Connection connection, Object object) {
 			Class type = object.getClass();
@@ -55,8 +58,8 @@ public class Listener {
 					return;
 				} catch (NoSuchMethodException ex) {
 					if (DEBUG)
-						debug("kryonet", "Unable to find listener method: " + getClass().getName() + "#received(Connection, "
-							+ type.getName() + ")");
+						debug("kryonet",
+							"Unable to find listener method: " + getClass().getName() + "#received(Connection, " + type.getName() + ")");
 					return;
 				} finally {
 					classToMethod.put(type, method);
@@ -116,7 +119,7 @@ public class Listener {
 	 * Wraps a listener and processes notification events on a separate thread.
 	 */
 	static public class ThreadedListener extends QueuedListener {
-		private ExecutorService threadPool;
+		protected final ExecutorService threadPool;
 
 		/**
 		 * Creates a single thread to process notification events.
@@ -136,6 +139,40 @@ public class Listener {
 
 		public void queue (Runnable runnable) {
 			threadPool.execute(runnable);
+		}
+	}
+
+	/**
+	 * Delays the notification of the wrapped listener to simulate lag on incoming objects. Notification events are processed on a
+	 * separate thread after a delay. Note that only incoming objects are delayed. To delay outgoing objects, use a LagListener at
+	 * the other end of the connection.
+	 */
+	static public class LagListener extends QueuedListener {
+		private final ScheduledExecutorService threadPool;
+		private final int lagMillisMin, lagMillisMax;
+		final LinkedList<Runnable> runnables = new LinkedList();
+
+		public LagListener (int lagMillisMin, int lagMillisMax, Listener listener) {
+			super(listener);
+			this.lagMillisMin = lagMillisMin;
+			this.lagMillisMax = lagMillisMax;
+			threadPool = Executors.newScheduledThreadPool(1);
+		}
+
+		public void queue (Runnable runnable) {
+			synchronized (runnables) {
+				runnables.addFirst(runnable);
+			}
+			int lag = lagMillisMax + (int)(Math.random() * (lagMillisMax - lagMillisMin));
+			threadPool.schedule(new Runnable() {
+				public void run () {
+					Runnable runnable;
+					synchronized (runnables) {
+						runnable = runnables.removeLast();
+					}
+					runnable.run();
+				}
+			}, lag, TimeUnit.MILLISECONDS);
 		}
 	}
 }
