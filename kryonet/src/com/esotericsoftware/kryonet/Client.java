@@ -197,7 +197,8 @@ public class Client extends Connection implements EndPoint {
 						} catch (InterruptedException ignored) {
 						}
 					}
-					if (!udpRegistered) throw new SocketTimeoutException("Connected, but timed out during UDP registration: " + host + ":" + udpPort);
+					if (!udpRegistered)
+						throw new SocketTimeoutException("Connected, but timed out during UDP registration: " + host + ":" + udpPort);
 				}
 			}
 		} catch (IOException ex) {
@@ -243,16 +244,6 @@ public class Client extends Connection implements EndPoint {
 			for (Iterator<SelectionKey> iter = keys.iterator(); iter.hasNext();) {
 				SelectionKey selectionKey = iter.next();
 				iter.remove();
-
-				// if (id == 1) {
-				// try {
-				// long lag = 600 + (long)(Math.random() * 2000);
-				// System.out.println(lag);
-				// Thread.sleep(lag);
-				// } catch (InterruptedException ex) {
-				// }
-				// }
-
 				try {
 					int ops = selectionKey.readyOps();
 					if ((ops & SelectionKey.OP_READ) == SelectionKey.OP_READ) {
@@ -396,7 +387,7 @@ public class Client extends Connection implements EndPoint {
 	public Thread getUpdateThread () {
 		return updateThread;
 	}
-	
+
 	/**
 	 * Broadcasts a UDP message on the LAN to discover any running servers.
 	 * @param udpPort The UDP port of the server.
