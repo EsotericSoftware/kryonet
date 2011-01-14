@@ -1,15 +1,12 @@
 
 package com.esotericsoftware.kryonet;
 
-import static com.esotericsoftware.minlog.Log.*;
-
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -18,7 +15,8 @@ import com.esotericsoftware.kryo.Context;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
 import com.esotericsoftware.kryo.serialize.IntSerializer;
-import com.esotericsoftware.kryo.util.Util;
+
+import static com.esotericsoftware.minlog.Log.*;
 
 /**
  * @author Nathan Sweet <misc@n4te.com>
@@ -165,12 +163,13 @@ class TcpConnection {
 		SocketChannel socketChannel = this.socketChannel;
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
 
-		if (bufferPositionFix) {
-			buffer.compact();
-			buffer.flip();
-		}
-		while (buffer.hasRemaining())
+		while (buffer.hasRemaining()) {
+			if (bufferPositionFix) {
+				buffer.compact();
+				buffer.flip();
+			}
 			if (socketChannel.write(buffer) == 0) break;
+		}
 
 		if (keepAliveTime > 0) lastCommunicationTime = System.currentTimeMillis();
 		return !buffer.hasRemaining();
