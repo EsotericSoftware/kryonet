@@ -1,8 +1,6 @@
 
 package com.esotericsoftware.kryonet;
 
-import static com.esotericsoftware.minlog.Log.*;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -15,6 +13,8 @@ import com.esotericsoftware.kryo.Context;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
+
+import static com.esotericsoftware.minlog.Log.*;
 
 /**
  * Represents a TCP and optionally a UDP connection between a {@link Client} and a {@link Server}. If either underlying connection
@@ -165,7 +165,7 @@ public class Connection {
 	}
 
 	/**
-	 * Returns the last calculated return trip time, or -1 if {@link #updateReturnTripTime()} has never been called or the
+	 * Returns the last calculated TCP return trip time, or -1 if {@link #updateReturnTripTime()} has never been called or the
 	 * {@link FrameworkMessage.Ping} response has not yet been received.
 	 */
 	public int getReturnTripTime () {
@@ -173,20 +173,25 @@ public class Connection {
 	}
 
 	/**
-	 * An empty object will be sent if the TCP connection is inactive more than the specified milliseconds. Some network hardware
-	 * will close TCP connections if they cease to transmit. Set to zero to disable. Defaults to 59000.
+	 * An empty object will be sent if the TCP connection has not sent an object within the specified milliseconds. Periodically
+	 * sending a keep alive ensures that an abnormal close is detected in a reasonable amount of time (see {@link #setTimeout(int)}
+	 * ). Also, some network hardware will close a TCP connection that ceases to transmit for a period of time (typically 1+
+	 * minutes). Set to zero to disable. Defaults to 8000.
 	 */
 	public void setKeepAliveTCP (int keepAliveMillis) {
-		tcp.keepAliveTime = keepAliveMillis;
+		tcp.keepAliveMillis = keepAliveMillis;
 	}
 
 	/**
-	 * An empty object will be sent if the UDP connection is inactive more than the specified milliseconds. Most network hardware
-	 * will close UDP connections if they cease to transmit. Set to zero to disable. Defaults to 19000.
+	 * If the specified amount of time passes without receiving an object over TCP, the connection is considered closed. When a TCP
+	 * socket is closed normally, the remote end is notified immediately and this timeout is not needed. However, if a socket is
+	 * closed abnormally (eg, power loss), KryoNet uses this timeout to detect the problem. The timeout should be set higher than
+	 * the {@link #setKeepAliveTCP(int) TCP keep alive} for the remote end of the connection. The keep alive ensures that the
+	 * remote end of the connection will be constantly sending objects, and setting the timeout higher than the keep alive allows
+	 * for network latency. Set to zero to disable. Defaults to 12000.
 	 */
-	public void setKeepAliveUDP (int keepAliveMillis) {
-		if (udp == null) throw new IllegalStateException("Not connected via UDP.");
-		udp.keepAliveTime = keepAliveMillis;
+	public void setTimeout (int timeoutMillis) {
+		tcp.timeoutMillis = timeoutMillis;
 	}
 
 	/**

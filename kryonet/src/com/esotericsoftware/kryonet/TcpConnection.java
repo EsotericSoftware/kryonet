@@ -25,14 +25,17 @@ class TcpConnection {
 	static private final int IPTOS_LOWDELAY = 0x10;
 
 	SocketChannel socketChannel;
-	int keepAliveTime = 59000;
+	int keepAliveMillis = 8000;
 	final ByteBuffer readBuffer, writeBuffer, tempWriteBuffer;
+	boolean bufferPositionFix;
+	int timeoutMillis = 12000;
+
 	private final Kryo kryo;
 	private SelectionKey selectionKey;
 	private final Object writeLock = new Object();
 	private int currentObjectLength;
-	private long lastCommunicationTime;
-	boolean bufferPositionFix;
+	private long lastWriteTime;
+	private long lastReadTime;
 
 	public TcpConnection (Kryo kryo, int writeBufferSize, int objectBufferSize) {
 		this.kryo = kryo;
@@ -46,7 +49,8 @@ class TcpConnection {
 		try {
 			this.socketChannel = socketChannel;
 			socketChannel.configureBlocking(false);
-			socketChannel.socket().setTcpNoDelay(true);
+			Socket socket = socketChannel.socket();
+			socket.setTcpNoDelay(true);
 
 			selectionKey = socketChannel.register(selector, SelectionKey.OP_READ);
 
@@ -55,7 +59,7 @@ class TcpConnection {
 					+ socketChannel.socket().getRemoteSocketAddress());
 			}
 
-			if (keepAliveTime > 0) lastCommunicationTime = System.currentTimeMillis();
+			lastReadTime = lastWriteTime = System.currentTimeMillis();
 
 			return selectionKey;
 		} catch (IOException ex) {
@@ -86,7 +90,7 @@ class TcpConnection {
 					+ socketChannel.socket().getRemoteSocketAddress());
 			}
 
-			if (keepAliveTime > 0) lastCommunicationTime = System.currentTimeMillis();
+			lastReadTime = lastWriteTime = System.currentTimeMillis();
 		} catch (IOException ex) {
 			close();
 			IOException ioEx = new IOException("Unable to connect to: " + remoteAddress);
@@ -105,9 +109,8 @@ class TcpConnection {
 				readBuffer.compact();
 				int bytesRead = socketChannel.read(readBuffer);
 				readBuffer.flip();
-
 				if (bytesRead == -1) throw new SocketException("Connection is closed.");
-				if (keepAliveTime > 0) lastCommunicationTime = System.currentTimeMillis();
+				lastReadTime = System.currentTimeMillis();
 
 				if (!IntSerializer.canRead(readBuffer, true)) return null;
 			}
@@ -125,7 +128,7 @@ class TcpConnection {
 			int bytesRead = socketChannel.read(readBuffer);
 			readBuffer.flip();
 			if (bytesRead == -1) throw new SocketException("Connection is closed.");
-			if (keepAliveTime > 0) lastCommunicationTime = System.currentTimeMillis();
+			lastReadTime = System.currentTimeMillis();
 
 			if (readBuffer.remaining() < length) return null;
 		}
@@ -171,7 +174,7 @@ class TcpConnection {
 			if (socketChannel.write(buffer) == 0) break;
 		}
 
-		if (keepAliveTime > 0) lastCommunicationTime = System.currentTimeMillis();
+		lastWriteTime = System.currentTimeMillis();
 		return !buffer.hasRemaining();
 	}
 
@@ -227,6 +230,8 @@ class TcpConnection {
 					trace("kryonet", connection + " TCP write buffer utilization: " + percentage + "%");
 			}
 
+			lastWriteTime = System.currentTimeMillis();
+
 			return tempWriteBuffer.limit() - start;
 		}
 	}
@@ -244,6 +249,10 @@ class TcpConnection {
 	}
 
 	public boolean needsKeepAlive (long time) {
-		return socketChannel != null && keepAliveTime > 0 && time - lastCommunicationTime > keepAliveTime;
+		return socketChannel != null && keepAliveMillis > 0 && time - lastWriteTime > keepAliveMillis;
+	}
+
+	public boolean isTimedOut (long time) {
+		return socketChannel != null && lastReadTime > 0 && time - lastReadTime > timeoutMillis;
 	}
 }
