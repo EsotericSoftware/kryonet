@@ -22,7 +22,7 @@ import com.esotericsoftware.kryo.SerializationException;
 class UdpConnection {
 	InetSocketAddress connectedAddress;
 	DatagramChannel datagramChannel;
-	int keepAliveTime = 19000;
+	int keepAliveMillis = 19000;
 	final ByteBuffer readBuffer, writeBuffer;
 	private final Kryo kryo;
 	private SelectionKey selectionKey;
@@ -134,6 +134,6 @@ class UdpConnection {
 	}
 
 	public boolean needsKeepAlive (long time) {
-		return connectedAddress != null && keepAliveTime > 0 && time - lastCommunicationTime > keepAliveTime;
+		return connectedAddress != null && keepAliveMillis > 0 && time - lastCommunicationTime > keepAliveMillis;
 	}
 }

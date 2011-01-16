@@ -1,8 +1,6 @@
 
 package com.esotericsoftware.kryonet;
 
-import static com.esotericsoftware.minlog.Log.*;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -24,6 +22,8 @@ import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterTCP;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
+
+import static com.esotericsoftware.minlog.Log.*;
 
 /**
  * Manages TCP and optionally UDP connections from many {@link Client Clients}.
@@ -168,7 +168,8 @@ public class Server implements EndPoint {
 		Set<SelectionKey> keys = selector.selectedKeys();
 		synchronized (keys) {
 			UdpConnection udp = this.udp;
-			outer: //
+			outer:
+			//
 			for (Iterator<SelectionKey> iter = keys.iterator(); iter.hasNext();) {
 				SelectionKey selectionKey = iter.next();
 				iter.remove();
@@ -300,7 +301,7 @@ public class Server implements EndPoint {
 					if (fromConnection != null) {
 						if (DEBUG) {
 							String objectString = object == null ? "null" : object.getClass().getSimpleName();
-							if (object instanceof KeepAlive) {
+							if (object instanceof FrameworkMessage) {
 								if (TRACE) trace("kryonet", fromConnection + " received UDP: " + objectString);
 							} else
 								debug("kryonet", fromConnection + " received UDP: " + objectString);
@@ -312,6 +313,17 @@ public class Server implements EndPoint {
 				} catch (CancelledKeyException ignored) {
 					// Connection is closed.
 				}
+			}
+		}
+		long time = System.currentTimeMillis();
+		Connection[] connections = this.connections;
+		for (int i = 0, n = connections.length; i < n; i++) {
+			Connection connection = connections[i];
+			if (connection.tcp.isTimedOut(time)) {
+				if (DEBUG) debug("kryonet", connection + " timed out.");
+				connection.close();
+			} else {
+				if (connection.tcp.needsKeepAlive(time)) connection.sendTCP(FrameworkMessage.keepAlive);
 			}
 		}
 	}

@@ -1,8 +1,6 @@
 
 package com.esotericsoftware.kryonet;
 
-import static com.esotericsoftware.minlog.Log.*;
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -27,6 +25,8 @@ import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterTCP;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
+
+import static com.esotericsoftware.minlog.Log.*;
 
 /**
  * Represents a TCP and optionally a UDP connection to a {@link Server}.
@@ -312,8 +312,13 @@ public class Client extends Connection implements EndPoint {
 		}
 		if (isConnected) {
 			long time = System.currentTimeMillis();
-			if (tcp.needsKeepAlive(time)) sendTCP(FrameworkMessage.keepAlive);
-			if (udp != null && udpRegistered && udp.needsKeepAlive(time)) sendUDP(FrameworkMessage.keepAlive);
+			if (tcp.isTimedOut(time)) {
+				if (DEBUG) debug("kryonet", this + " timed out.");
+				close();
+			} else {
+				if (tcp.needsKeepAlive(time)) sendTCP(FrameworkMessage.keepAlive);
+				if (udp != null && udpRegistered && udp.needsKeepAlive(time)) sendUDP(FrameworkMessage.keepAlive);
+			}
 		}
 	}
 
@@ -382,6 +387,16 @@ public class Client extends Connection implements EndPoint {
 	public void removeListener (Listener listener) {
 		super.removeListener(listener);
 		if (TRACE) trace("kryonet", "Client listener removed.");
+	}
+
+	/**
+	 * An empty object will be sent if the UDP connection is inactive more than the specified milliseconds. Network hardware may
+	 * keep a translation table of inside to outside IP addresses and a UDP keep alive keeps this table entry from expiring. Set to
+	 * zero to disable. Defaults to 19000.
+	 */
+	public void setKeepAliveUDP (int keepAliveMillis) {
+		if (udp == null) throw new IllegalStateException("Not connected via UDP.");
+		udp.keepAliveMillis = keepAliveMillis;
 	}
 
 	public Thread getUpdateThread () {
