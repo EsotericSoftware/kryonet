@@ -253,6 +253,6 @@ class TcpConnection {
 	}
 
 	public boolean isTimedOut (long time) {
-		return socketChannel != null && lastReadTime > 0 && time - lastReadTime > timeoutMillis;
+		return socketChannel != null && timeoutMillis > 0 && time - lastReadTime > timeoutMillis;
 	}
 }
