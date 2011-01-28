@@ -13,8 +13,10 @@ import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.security.AccessControlException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
 import com.esotericsoftware.kryo.Kryo;
@@ -403,36 +405,38 @@ public class Client extends Connection implements EndPoint {
 		return updateThread;
 	}
 
+	private void broadcast (int udpPort, DatagramSocket socket) throws IOException {
+		int classID = kryo.getRegisteredClass(DiscoverHost.class).getID();
+		ByteBuffer dataBuffer = ByteBuffer.allocate(4);
+		IntSerializer.put(dataBuffer, classID, true);
+		dataBuffer.flip();
+		byte[] data = new byte[dataBuffer.limit()];
+		dataBuffer.get(data);
+		for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+			for (InetAddress address : Collections.list(iface.getInetAddresses())) {
+				if (!address.isSiteLocalAddress()) continue;
+				// Java 1.5 doesn't support getting the subnet mask, so try the two most common.
+				byte[] ip = address.getAddress();
+				ip[3] = -1; // 255.255.255.0
+				socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
+				ip[2] = -1; // 255.255.0.0
+				socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
+			}
+		}
+		if (DEBUG) debug("kryonet", "Broadcasted host discovery on port: " + udpPort);
+	}
+
 	/**
-	 * Broadcasts a UDP message on the LAN to discover any running servers.
+	 * Broadcasts a UDP message on the LAN to discover any running servers. The address of the first server to respond is returned.
 	 * @param udpPort The UDP port of the server.
 	 * @param timeoutMillis The number of milliseconds to wait for a response.
 	 * @return the first server found, or null if no server responded.
 	 */
 	public InetAddress discoverHost (int udpPort, int timeoutMillis) {
-		// TODO - Change to discover multiple hosts.
 		DatagramSocket socket = null;
 		try {
 			socket = new DatagramSocket();
-			int classID = kryo.getRegisteredClass(DiscoverHost.class).getID();
-			ByteBuffer dataBuffer = ByteBuffer.allocate(4);
-			IntSerializer.put(dataBuffer, classID, true);
-			dataBuffer.flip();
-			byte[] data = new byte[dataBuffer.limit()];
-			dataBuffer.get(data);
-			for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-				for (InetAddress address : Collections.list(iface.getInetAddresses())) {
-					if (!address.isSiteLocalAddress()) continue;
-					// Java 1.5 doesn't support getting the subnet mask, so try the two most common.
-					byte[] ip = address.getAddress();
-					ip[3] = -1; // 255.255.255.0
-					socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
-					ip[2] = -1; // 255.255.0.0
-					socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
-				}
-			}
-			if (DEBUG) debug("kryonet", "Broadcasted host discovery on port: " + udpPort);
-
+			broadcast(udpPort, socket);
 			socket.setSoTimeout(timeoutMillis);
 			DatagramPacket packet = new DatagramPacket(new byte[0], 0);
 			try {
@@ -443,6 +447,37 @@ public class Client extends Connection implements EndPoint {
 			}
 			if (INFO) info("kryonet", "Discovered server: " + packet.getAddress());
 			return packet.getAddress();
+		} catch (IOException ex) {
+			if (ERROR) error("kryonet", "Host discovery failed.", ex);
+			return null;
+		} finally {
+			if (socket != null) socket.close();
+		}
+	}
+
+	/**
+	 * Broadcasts a UDP message on the LAN to discover any running servers.
+	 * @param udpPort The UDP port of the server.
+	 * @param timeoutMillis The number of milliseconds to wait for a response.
+	 */
+	public List<InetAddress> discoverHosts (int udpPort, int timeoutMillis) {
+		List<InetAddress> hosts = new ArrayList<InetAddress>();
+		DatagramSocket socket = null;
+		try {
+			socket = new DatagramSocket();
+			broadcast(udpPort, socket);
+			socket.setSoTimeout(timeoutMillis);
+			while (true) {
+				DatagramPacket packet = new DatagramPacket(new byte[0], 0);
+				try {
+					socket.receive(packet);
+				} catch (SocketTimeoutException ex) {
+					if (INFO) info("kryonet", "Host discovery timed out.");
+					return hosts;
+				}
+				if (INFO) info("kryonet", "Discovered server: " + packet.getAddress());
+				hosts.add(packet.getAddress());
+			}
 		} catch (IOException ex) {
 			if (ERROR) error("kryonet", "Host discovery failed.", ex);
 			return null;
