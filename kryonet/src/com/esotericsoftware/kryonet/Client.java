@@ -480,7 +480,7 @@ public class Client extends Connection implements EndPoint {
 			}
 		} catch (IOException ex) {
 			if (ERROR) error("kryonet", "Host discovery failed.", ex);
-			return null;
+			return hosts;
 		} finally {
 			if (socket != null) socket.close();
 		}
