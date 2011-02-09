@@ -1,2 +1,5 @@
-version: 1.03a
+version: 1.04
 dependencies: ../kryo
+---
+build(project);
+oneJAR(project);
