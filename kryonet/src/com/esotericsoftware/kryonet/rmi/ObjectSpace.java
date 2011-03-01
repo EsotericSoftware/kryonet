@@ -340,7 +340,7 @@ public class ObjectSpace {
 			synchronized (responseQueue) {
 				while (true) {
 					int remaining = (int)(endTime - System.currentTimeMillis());
-					for (int i = responseQueue.size() - 1; i >= 0; i++) {
+					for (int i = responseQueue.size() - 1; i >= 0; i--) {
 						InvokeMethodResult invokeMethodResult = responseQueue.get(i);
 						if (invokeMethodResult.responseID == responseID) {
 							responseQueue.remove(invokeMethodResult);
