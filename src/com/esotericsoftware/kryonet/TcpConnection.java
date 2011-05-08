@@ -159,6 +159,7 @@ class TcpConnection {
 				selectionKey.interestOps(SelectionKey.OP_READ);
 			}
 			writeBuffer.compact();
+			lastWriteTime = System.currentTimeMillis();
 		}
 	}
 
@@ -174,7 +175,6 @@ class TcpConnection {
 			if (socketChannel.write(buffer) == 0) break;
 		}
 
-		lastWriteTime = System.currentTimeMillis();
 		return !buffer.hasRemaining();
 	}
 
