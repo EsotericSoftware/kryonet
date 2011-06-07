@@ -163,7 +163,7 @@ public class Listener {
 			synchronized (runnables) {
 				runnables.addFirst(runnable);
 			}
-			int lag = lagMillisMax + (int)(Math.random() * (lagMillisMax - lagMillisMin));
+			int lag = lagMillisMin + (int)(Math.random() * (lagMillisMax - lagMillisMin));
 			threadPool.schedule(new Runnable() {
 				public void run () {
 					Runnable runnable;
