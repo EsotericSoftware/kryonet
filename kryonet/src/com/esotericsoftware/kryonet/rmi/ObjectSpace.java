@@ -27,16 +27,14 @@ import com.esotericsoftware.kryonet.EndPoint;
 import com.esotericsoftware.kryonet.FrameworkMessage;
 import com.esotericsoftware.kryonet.Listener;
 
-/**
- * Allows methods on objects to be invoked remotely over TCP. Objects are {@link #register(int, Object) registered} with an ID.
+/** Allows methods on objects to be invoked remotely over TCP. Objects are {@link #register(int, Object) registered} with an ID.
  * The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
  * {@link #getRemoteObject(Connection, int, Class) access} registered objects.
  * <p>
  * It costs at least 2 bytes more to use remote method invocation than just sending the parameters. If the method has a return
  * value which is not {@link RemoteObject#setNonBlocking(boolean, boolean) ignored}, an extra byte is written. If the type of a
  * parameter is not final (note primitives are final) then an extra byte is written for that parameter.
- * @author Nathan Sweet <misc@n4te.com>
- */
+ * @author Nathan Sweet <misc@n4te.com> */
 public class ObjectSpace {
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
@@ -69,10 +67,8 @@ public class ObjectSpace {
 		}
 	};
 
-	/**
-	 * Creates an ObjectSpace with no connections. Connections must be {@link #addConnection(Connection) added} to allow the remote
-	 * end of the connections to access objects in this ObjectSpace.
-	 */
+	/** Creates an ObjectSpace with no connections. Connections must be {@link #addConnection(Connection) added} to allow the remote
+	 * end of the connections to access objects in this ObjectSpace. */
 	public ObjectSpace () {
 		synchronized (instancesLock) {
 			ObjectSpace[] instances = ObjectSpace.instances;
@@ -83,30 +79,24 @@ public class ObjectSpace {
 		}
 	}
 
-	/**
-	 * Creates an ObjectSpace with the specified connection. More connections can be {@link #addConnection(Connection) added}.
-	 */
+	/** Creates an ObjectSpace with the specified connection. More connections can be {@link #addConnection(Connection) added}. */
 	public ObjectSpace (Connection connection) {
 		this();
 		addConnection(connection);
 	}
 
-	/**
-	 * Registers an object to allow the remote end of the ObjectSpace's connections to access it using the specified ID.
+	/** Registers an object to allow the remote end of the ObjectSpace's connections to access it using the specified ID.
 	 * <p>
 	 * If a connection is added to multiple ObjectSpaces, the same object ID should not be registered in more than one of those
 	 * ObjectSpaces.
-	 * @see #getRemoteObject(Connection, int, Class...)
-	 */
+	 * @see #getRemoteObject(Connection, int, Class...) */
 	public void register (int objectID, Object object) {
 		if (object == null) throw new IllegalArgumentException("object cannot be null.");
 		idToObject.put(objectID, object);
 		if (TRACE) trace("kryonet", "Object registered with ObjectSpace as " + objectID + ": " + object);
 	}
 
-	/**
-	 * Causes this ObjectSpace to stop listening to the connections for method invocation messages.
-	 */
+	/** Causes this ObjectSpace to stop listening to the connections for method invocation messages. */
 	public void close () {
 		Connection[] connections = this.connections;
 		for (int i = 0; i < connections.length; i++)
@@ -121,9 +111,7 @@ public class ObjectSpace {
 		if (TRACE) trace("kryonet", "Closed ObjectSpace.");
 	}
 
-	/**
-	 * Allows the remote end of the specified connection to access objects registered in this ObjectSpace.
-	 */
+	/** Allows the remote end of the specified connection to access objects registered in this ObjectSpace. */
 	public void addConnection (Connection connection) {
 		if (connection == null) throw new IllegalArgumentException("connection cannot be null.");
 
@@ -139,9 +127,7 @@ public class ObjectSpace {
 		if (TRACE) trace("kryonet", "Added connection to ObjectSpace: " + connection);
 	}
 
-	/**
-	 * Removes the specified connection, it will no longer be able to access objects registered in this ObjectSpace.
-	 */
+	/** Removes the specified connection, it will no longer be able to access objects registered in this ObjectSpace. */
 	public void removeConnection (Connection connection) {
 		if (connection == null) throw new IllegalArgumentException("connection cannot be null.");
 
@@ -156,12 +142,10 @@ public class ObjectSpace {
 		if (TRACE) trace("kryonet", "Removed connection from ObjectSpace: " + connection);
 	}
 
-	/**
-	 * Invokes the method on the object and, if necessary, sends the result back to the connection that made the invocation
+	/** Invokes the method on the object and, if necessary, sends the result back to the connection that made the invocation
 	 * request. This method is invoked on the update thread of the {@link EndPoint} for this ObjectSpace and can be overridden to
 	 * perform invocations on a different thread.
-	 * @param connection The remote side of this connection requested the invocation.
-	 */
+	 * @param connection The remote side of this connection requested the invocation. */
 	protected void invoke (Connection connection, Object target, InvokeMethod invokeMethod) {
 		if (DEBUG) {
 			String argString = "";
@@ -192,16 +176,13 @@ public class ObjectSpace {
 		if (DEBUG) debug("kryonet", connection + " sent: " + result + " (" + length + ")");
 	}
 
-	/**
-	 * Identical to {@link #getRemoteObject(Connection, int, Class...)} except returns the object cast to the specified interface
-	 * type. The returned object still implements {@link RemoteObject}.
-	 */
+	/** Identical to {@link #getRemoteObject(Connection, int, Class...)} except returns the object cast to the specified interface
+	 * type. The returned object still implements {@link RemoteObject}. */
 	static public <T> T getRemoteObject (final Connection connection, int objectID, Class<T> iface) {
 		return (T)getRemoteObject(connection, objectID, new Class[] {iface});
 	}
 
-	/**
-	 * Returns a proxy object that implements the specified interfaces. Methods invoked on the proxy object will be invoked
+	/** Returns a proxy object that implements the specified interfaces. Methods invoked on the proxy object will be invoked
 	 * remotely on the object with the specified ID in the ObjectSpace for the specified connection. If the remote end of the
 	 * connection has not {@link #addConnection(Connection) added} the connection to the ObjectSpace, the remote method invocations
 	 * will be ignored.
@@ -215,8 +196,7 @@ public class ObjectSpace {
 	 * <p>
 	 * If a proxy returned from this method is part of an object graph sent over the network, the object graph on the receiving
 	 * side will have the proxy object replaced with the registered object.
-	 * @see RemoteObject
-	 */
+	 * @see RemoteObject */
 	static public RemoteObject getRemoteObject (Connection connection, int objectID, Class... ifaces) {
 		if (connection == null) throw new IllegalArgumentException("connection cannot be null.");
 		if (ifaces == null) throw new IllegalArgumentException("ifaces cannot be null.");
@@ -227,9 +207,7 @@ public class ObjectSpace {
 			connection, objectID));
 	}
 
-	/**
-	 * Handles network communication when methods are invoked on a proxy.
-	 */
+	/** Handles network communication when methods are invoked on a proxy. */
 	static private class RemoteInvocationHandler implements InvocationHandler {
 		private final Connection connection;
 		final int objectID;
@@ -351,7 +329,9 @@ public class ObjectSpace {
 					if (remaining <= 0) throw new TimeoutException("Response timed out.");
 					try {
 						responseQueue.wait(remaining);
-					} catch (InterruptedException ignored) {
+					} catch (InterruptedException ex) {
+						Thread.currentThread().interrupt();
+						throw new RuntimeException(ex);
 					}
 				}
 			}
@@ -362,9 +342,7 @@ public class ObjectSpace {
 		}
 	}
 
-	/**
-	 * Internal message to invoke methods remotely.
-	 */
+	/** Internal message to invoke methods remotely. */
 	static public class InvokeMethod implements FrameworkMessage, CustomSerialization {
 		public int objectID;
 		public Method method;
@@ -425,9 +403,7 @@ public class ObjectSpace {
 		}
 	}
 
-	/**
-	 * Internal message to return the result of a remotely invoked method.
-	 */
+	/** Internal message to return the result of a remotely invoked method. */
 	static public class InvokeMethodResult implements FrameworkMessage {
 		public int objectID;
 		public byte responseID;
@@ -487,9 +463,7 @@ public class ObjectSpace {
 		return cachedMethods;
 	}
 
-	/**
-	 * Returns the first object registered with the specified ID in any of the ObjectSpaces the specified connection belongs to.
-	 */
+	/** Returns the first object registered with the specified ID in any of the ObjectSpaces the specified connection belongs to. */
 	static Object getRegisteredObject (Connection connection, int objectID) {
 		ObjectSpace[] instances = ObjectSpace.instances;
 		for (int i = 0, n = instances.length; i < n; i++) {
@@ -506,11 +480,9 @@ public class ObjectSpace {
 		return null;
 	}
 
-	/**
-	 * Registers the classes needed to use ObjectSpaces. This should be called before any connections are opened.
+	/** Registers the classes needed to use ObjectSpaces. This should be called before any connections are opened.
 	 * @see EndPoint#getKryo()
-	 * @see Kryo#register(Class, Serializer)
-	 */
+	 * @see Kryo#register(Class, Serializer) */
 	static public void registerClasses (Kryo kryo) {
 		kryo.register(Object[].class);
 		kryo.register(InvokeMethod.class);
