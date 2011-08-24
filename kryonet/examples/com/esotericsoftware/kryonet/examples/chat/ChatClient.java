@@ -38,6 +38,7 @@ import com.esotericsoftware.minlog.Log;
 public class ChatClient {
 	ChatFrame chatFrame;
 	Client client;
+	String name;
 
 	public ChatClient () {
 		client = new Client();
@@ -50,7 +51,7 @@ public class ChatClient {
 		client.addListener(new Listener() {
 			public void connected (Connection connection) {
 				RegisterName registerName = new RegisterName();
-				registerName.name = "meow";
+				registerName.name = name;
 				client.sendTCP(registerName);
 			}
 
@@ -88,7 +89,7 @@ public class ChatClient {
 		input = (String)JOptionPane.showInputDialog(null, "Name:", "Connect to chat server", JOptionPane.QUESTION_MESSAGE, null,
 			null, "Test");
 		if (input == null || input.trim().length() == 0) System.exit(1);
-		final String name = input.trim();
+		name = input.trim();
 
 		// All the ugly Swing stuff is hidden in ChatFrame so it doesn't clutter the KryoNet example code.
 		chatFrame = new ChatFrame(host);
