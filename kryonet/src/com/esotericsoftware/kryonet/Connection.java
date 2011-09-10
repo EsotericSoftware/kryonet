@@ -16,6 +16,8 @@ import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 
 import static com.esotericsoftware.minlog.Log.*;
 
+// BOZO - Layer to handle handshake state.
+
 /**
  * Represents a TCP and optionally a UDP connection between a {@link Client} and a {@link Server}. If either underlying connection
  * is closed or errors, both connections are closed.
@@ -83,7 +85,7 @@ public class Connection {
 			return 0;
 		} catch (SerializationException ex) {
 			if (ex.causedBy(BufferOverflowException.class)) {
-				if (DEBUG) debug("kryonet", "Unable to send TCP with connection: " + this, ex);
+				if (WARN) warn("kryonet", "Unable to send TCP with connection: " + this, ex);
 			} else {
 				if (ERROR) error("kryonet", "Unable to send TCP with connection: " + this, ex);
 			}
@@ -131,7 +133,7 @@ public class Connection {
 			return 0;
 		} catch (SerializationException ex) {
 			if (ex.causedBy(BufferOverflowException.class)) {
-				if (DEBUG) debug("kryonet", "Unable to send UDP with connection: " + this, ex);
+				if (WARN) warn("kryonet", "Unable to send UDP with connection: " + this, ex);
 			} else {
 				if (ERROR) error("kryonet", "Unable to send UDP with connection: " + this, ex);
 			}
