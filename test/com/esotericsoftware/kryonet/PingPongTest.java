@@ -19,7 +19,6 @@ public class PingPongTest extends KryoNetTestCase {
 		server.bind(tcpPort, udpPort);
 		server.addListener(new Listener() {
 			public void connected (Connection connection) {
-				connection.sendTCP(new Ball());
 				connection.sendTCP(dataTCP);
 				connection.sendUDP(dataUDP); // Note UDP ping pong stops if a UDP packet is lost.
 			}
@@ -71,7 +70,7 @@ public class PingPongTest extends KryoNetTestCase {
 			buffer.append('a');
 		data.string = buffer.toString();
 
-		data.strings = new String[] {"abcdefghijklmnopqrstuvwxyz0123456789", "", null, "!@#$", "áéíóú"};
+		data.strings = new String[] {"abcdefghijklmnopqrstuvwxyz0123456789", "", null, "!@#$", "ï¿½ï¿½ï¿½ï¿½ï¿½"};
 		data.ints = new int[] {-1234567, 1234567, -1, 0, 1, Integer.MAX_VALUE, Integer.MIN_VALUE};
 		data.shorts = new short[] {-12345, 12345, -1, 0, 1, Short.MAX_VALUE, Short.MIN_VALUE};
 		data.floats = new float[] {0, -0, 1, -1, 123456, -123456, 0.1f, 0.2f, -0.3f, (float)Math.PI, Float.MAX_VALUE,
@@ -94,7 +93,6 @@ public class PingPongTest extends KryoNetTestCase {
 	}
 
 	private void register (Kryo kryo) {
-		kryo.register(Ball.class);
 		kryo.register(String[].class);
 		kryo.register(int[].class);
 		kryo.register(short[].class);
