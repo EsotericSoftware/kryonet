@@ -120,7 +120,7 @@ public class Server implements EndPoint {
 	 * @throws IOException if the server could not be opened.
 	 */
 	public void bind (int tcpPort) throws IOException {
-		bind(tcpPort, -1);
+		bind(new InetSocketAddress(tcpPort), null);
 	}
 
 	/**
@@ -128,17 +128,22 @@ public class Server implements EndPoint {
 	 * @throws IOException if the server could not be opened.
 	 */
 	public void bind (int tcpPort, int udpPort) throws IOException {
+		bind(new InetSocketAddress(tcpPort), new InetSocketAddress(udpPort));
+	}
+	
+	/** @param udpPort May be null. */
+	public void bind (InetSocketAddress tcpPort, InetSocketAddress udpPort) throws IOException {
 		close();
 		synchronized (updateLock) {
 			selector.wakeup();
 			try {
 				serverChannel = selector.provider().openServerSocketChannel();
-				serverChannel.socket().bind(new InetSocketAddress(tcpPort));
+				serverChannel.socket().bind(tcpPort);
 				serverChannel.configureBlocking(false);
 				serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 				if (DEBUG) debug("kryonet", "Accepting connections on port: " + tcpPort + "/TCP");
 
-				if (udpPort != -1) {
+				if (udpPort != null) {
 					udp = new UdpConnection(kryo, objectBufferSize);
 					udp.bind(selector, udpPort);
 					if (DEBUG) debug("kryonet", "Accepting connections on port: " + udpPort + "/UDP");

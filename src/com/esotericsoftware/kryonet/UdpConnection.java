@@ -35,11 +35,11 @@ class UdpConnection {
 		writeBuffer = ByteBuffer.allocateDirect(bufferSize);
 	}
 
-	public void bind (Selector selector, int localPort) throws IOException {
+	public void bind (Selector selector, InetSocketAddress localPort) throws IOException {
 		close();
 		try {
 			datagramChannel = selector.provider().openDatagramChannel();
-			datagramChannel.socket().bind(new InetSocketAddress(localPort));
+			datagramChannel.socket().bind(localPort);
 			datagramChannel.configureBlocking(false);
 			selectionKey = datagramChannel.register(selector, SelectionKey.OP_READ);
 
