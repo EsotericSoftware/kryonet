@@ -1,5 +1,5 @@
 version: 1.04
 dependencies: ../kryo
 ---
-build(project);
-oneJAR(project);
+Build.build(project);
+Build.oneJAR(project);
