@@ -25,10 +25,8 @@ import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
 
 import static com.esotericsoftware.minlog.Log.*;
 
-/**
- * Manages TCP and optionally UDP connections from many {@link Client Clients}.
- * @author Nathan Sweet <misc@n4te.com>
- */
+/** Manages TCP and optionally UDP connections from many {@link Client Clients}.
+ * @author Nathan Sweet <misc@n4te.com> */
 public class Server implements EndPoint {
 	private final Kryo kryo;
 	private final int writeBufferSize, objectBufferSize;
@@ -66,15 +64,12 @@ public class Server implements EndPoint {
 		}
 	};
 
-	/**
-	 * Creates a Server with a write buffer size of 16384 and an object buffer size of 2048.
-	 */
+	/** Creates a Server with a write buffer size of 16384 and an object buffer size of 2048. */
 	public Server () {
 		this(16384, 2048);
 	}
 
-	/**
-	 * @param writeBufferSize One buffer of this size is allocated for each connected client. Objects are serialized to the write
+	/** @param writeBufferSize One buffer of this size is allocated for each connected client. Objects are serialized to the write
 	 *           buffer where the bytes are queued until they can be written to the socket.
 	 *           <p>
 	 *           Normally the socket is writable and the bytes are written immediately. If the socket cannot be written to and
@@ -87,8 +82,7 @@ public class Server implements EndPoint {
 	 *           buffers are used to hold the bytes for a single object graph until it can be sent over the network or
 	 *           deserialized.
 	 *           <p>
-	 *           The object buffers should be sized at least as large as the largest object that will be sent or received.
-	 */
+	 *           The object buffers should be sized at least as large as the largest object that will be sent or received. */
 	public Server (int writeBufferSize, int objectBufferSize) {
 		this(writeBufferSize, objectBufferSize, new Kryo());
 	}
@@ -115,22 +109,18 @@ public class Server implements EndPoint {
 		return kryo;
 	}
 
-	/**
-	 * Opens a TCP only server.
-	 * @throws IOException if the server could not be opened.
-	 */
+	/** Opens a TCP only server.
+	 * @throws IOException if the server could not be opened. */
 	public void bind (int tcpPort) throws IOException {
 		bind(new InetSocketAddress(tcpPort), null);
 	}
 
-	/**
-	 * Opens a TCP and UDP server.
-	 * @throws IOException if the server could not be opened.
-	 */
+	/** Opens a TCP and UDP server.
+	 * @throws IOException if the server could not be opened. */
 	public void bind (int tcpPort, int udpPort) throws IOException {
 		bind(new InetSocketAddress(tcpPort), new InetSocketAddress(udpPort));
 	}
-	
+
 	/** @param udpPort May be null. */
 	public void bind (InetSocketAddress tcpPort, InetSocketAddress udpPort) throws IOException {
 		close();
@@ -156,19 +146,22 @@ public class Server implements EndPoint {
 		if (INFO) info("kryonet", "Server opened.");
 	}
 
-	/**
-	 * Accepts any new connections and reads or writes any pending data for the current connections.
+	/** Accepts any new connections and reads or writes any pending data for the current connections.
 	 * @param timeout Wait for up to the specified milliseconds for a connection to be ready to process. May be zero to return
-	 *           immediately if there are no connections to process.
-	 */
+	 *           immediately if there are no connections to process. */
 	public void update (int timeout) throws IOException {
 		updateThread = Thread.currentThread();
 		synchronized (updateLock) { // Blocks to avoid a select while the selector is used to bind the server connection.
 		}
+		int select = 0;
 		if (timeout > 0) {
-			selector.select(timeout);
+			select = selector.select(timeout);
 		} else {
-			selector.selectNow();
+			select = selector.selectNow();
+		}
+		if (select == 0) {
+			Thread.yield();
+			return;
 		}
 		Set<SelectionKey> keys = selector.selectedKeys();
 		synchronized (keys) {
@@ -390,10 +383,8 @@ public class Server implements EndPoint {
 		}
 	}
 
-	/**
-	 * Allows the connections used by the server to be subclassed. This can be useful for storage per connection without an
-	 * additional lookup.
-	 */
+	/** Allows the connections used by the server to be subclassed. This can be useful for storage per connection without an
+	 * additional lookup. */
 	protected Connection newConnection () {
 		return new Connection();
 	}
@@ -501,9 +492,7 @@ public class Server implements EndPoint {
 		if (TRACE) trace("kryonet", "Server listener removed: " + listener.getClass().getName());
 	}
 
-	/**
-	 * Closes all open connections and the server port(s).
-	 */
+	/** Closes all open connections and the server port(s). */
 	public void close () {
 		Connection[] connections = this.connections;
 		if (INFO && connections.length > 0) info("kryonet", "Closing server connections...");
@@ -542,9 +531,7 @@ public class Server implements EndPoint {
 		return updateThread;
 	}
 
-	/**
-	 * Returns the current connections. The array returned should not be modified.
-	 */
+	/** Returns the current connections. The array returned should not be modified. */
 	public Connection[] getConnections () {
 		return connections;
 	}
