@@ -214,13 +214,18 @@ public class Client extends Connection implements EndPoint {
 	 *           if there is no data to process. */
 	public void update (int timeout) throws IOException {
 		updateThread = Thread.currentThread();
-		synchronized (updateLock) { // Blocks to avoid a select while the selector is used to establish a new connection.
+		synchronized (updateLock) { // Blocks to avoid a select while the selector is used to bind the server connection.
 		}
-		if (timeout > 0)
-			selector.select(timeout);
-		else
-			selector.selectNow();
-
+		int select = 0;
+		if (timeout > 0) {
+		    select = selector.select(timeout);
+		} else {
+		    select = selector.selectNow();
+		}
+		if (select == 0) {
+		    Thread.yield();
+		    return;
+		}
 		Set<SelectionKey> keys = selector.selectedKeys();
 		synchronized (keys) {
 			for (Iterator<SelectionKey> iter = keys.iterator(); iter.hasNext();) {
