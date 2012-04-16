@@ -312,6 +312,13 @@ public class Connection {
 	}
 
 	/**
+	 * Returns the number of bytes that are waiting to be written to the TCP socket, if any.
+	 */
+	public int getTcpWriteBufferSize () {
+		return tcp.writeBuffer.position();
+	}
+
+	/**
 	 * Sets the friendly name of this connection. This is returned by {@link #toString()} and is useful for providing application
 	 * specific identifying information in the logging. May be null for the default name of "Connection X", where X is the
 	 * connection ID.
