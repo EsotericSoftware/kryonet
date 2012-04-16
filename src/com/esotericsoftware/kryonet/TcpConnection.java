@@ -18,9 +18,7 @@ import com.esotericsoftware.kryo.serialize.IntSerializer;
 
 import static com.esotericsoftware.minlog.Log.*;
 
-/**
- * @author Nathan Sweet <misc@n4te.com>
- */
+/** @author Nathan Sweet <misc@n4te.com> */
 class TcpConnection {
 	static private final int IPTOS_LOWDELAY = 0x10;
 
@@ -178,9 +176,7 @@ class TcpConnection {
 		return !buffer.hasRemaining();
 	}
 
-	/**
-	 * This method is thread safe.
-	 */
+	/** This method is thread safe. */
 	public int send (Connection connection, Object object) throws IOException {
 		SocketChannel socketChannel = this.socketChannel;
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
@@ -237,6 +233,9 @@ class TcpConnection {
 	}
 
 	public void close () {
+		readBuffer.clear();
+		writeBuffer.clear();
+		currentObjectLength = 0;
 		try {
 			if (socketChannel != null) {
 				socketChannel.close();

@@ -16,9 +16,7 @@ import com.esotericsoftware.kryo.Context;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.SerializationException;
 
-/**
- * @author Nathan Sweet <misc@n4te.com>
- */
+/** @author Nathan Sweet <misc@n4te.com> */
 class UdpConnection {
 	InetSocketAddress connectedAddress;
 	DatagramChannel datagramChannel;
@@ -94,9 +92,7 @@ class UdpConnection {
 		}
 	}
 
-	/**
-	 * This method is thread safe.
-	 */
+	/** This method is thread safe. */
 	public int send (Connection connection, Object object, SocketAddress address) throws IOException {
 		DatagramChannel datagramChannel = this.datagramChannel;
 		if (datagramChannel == null) throw new SocketException("Connection is closed.");
@@ -121,6 +117,8 @@ class UdpConnection {
 	}
 
 	public void close () {
+		readBuffer.clear();
+		writeBuffer.clear();
 		connectedAddress = null;
 		try {
 			if (datagramChannel != null) {
