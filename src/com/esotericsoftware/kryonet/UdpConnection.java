@@ -10,8 +10,6 @@ import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 
-import com.esotericsoftware.kryo.util.ObjectMap;
-
 import static com.esotericsoftware.minlog.Log.*;
 
 /** @author Nathan Sweet <misc@n4te.com> */

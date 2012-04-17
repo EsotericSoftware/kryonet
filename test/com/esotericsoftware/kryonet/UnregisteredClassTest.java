@@ -4,8 +4,6 @@ package com.esotericsoftware.kryonet;
 import java.io.IOException;
 import java.util.Arrays;
 
-import com.esotericsoftware.kryo.Kryo;
-
 public class UnregisteredClassTest extends KryoNetTestCase {
 	public void testPingPong () throws IOException {
 		final Data dataTCP = new Data();

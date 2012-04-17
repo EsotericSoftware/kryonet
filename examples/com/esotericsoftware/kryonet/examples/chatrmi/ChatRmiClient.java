@@ -30,9 +30,6 @@ import javax.swing.JTextField;
 import com.esotericsoftware.kryonet.Client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
-import com.esotericsoftware.kryonet.examples.chat.Network.ChatMessage;
-import com.esotericsoftware.kryonet.examples.chat.Network.RegisterName;
-import com.esotericsoftware.kryonet.examples.chat.Network.UpdateNames;
 import com.esotericsoftware.kryonet.rmi.ObjectSpace;
 import com.esotericsoftware.minlog.Log;
 

@@ -2,7 +2,6 @@
 package com.esotericsoftware.kryonet;
 
 import java.io.IOException;
-import java.util.Timer;
 
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 

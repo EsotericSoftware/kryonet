@@ -2,8 +2,6 @@
 package com.esotericsoftware.kryonet.rmi;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryonet.Client;
