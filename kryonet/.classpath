@@ -6,5 +6,6 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="build/junit-4.6.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/kryo2"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/jsonbeans"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
