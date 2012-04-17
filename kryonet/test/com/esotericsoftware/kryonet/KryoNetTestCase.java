@@ -20,8 +20,8 @@ abstract public class KryoNetTestCase extends TestCase {
 	boolean fail;
 
 	public KryoNetTestCase () {
-		// Log.set(Log.LEVEL_TRACE);
-		Log.set(Log.LEVEL_DEBUG);
+		// Log.TRACE();
+		Log.DEBUG();
 	}
 
 	protected void setUp () throws Exception {

@@ -1,8 +1,6 @@
 
 package com.esotericsoftware.kryonet;
 
-import static com.esotericsoftware.minlog.Log.*;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -12,9 +10,9 @@ import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 
-import com.esotericsoftware.kryo.Context;
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.SerializationException;
+import com.esotericsoftware.kryo.util.ObjectMap;
+
+import static com.esotericsoftware.minlog.Log.*;
 
 /** @author Nathan Sweet <misc@n4te.com> */
 class UdpConnection {
@@ -22,19 +20,21 @@ class UdpConnection {
 	DatagramChannel datagramChannel;
 	int keepAliveMillis = 19000;
 	final ByteBuffer readBuffer, writeBuffer;
-	private final Kryo kryo;
+	private final Serialization serialization;
 	private SelectionKey selectionKey;
 	private final Object writeLock = new Object();
 	private long lastCommunicationTime;
 
-	public UdpConnection (Kryo kryo, int bufferSize) {
-		this.kryo = kryo;
-		readBuffer = ByteBuffer.allocateDirect(bufferSize);
+	public UdpConnection (Serialization serialization, int bufferSize) {
+		this.serialization = serialization;
+		readBuffer = ByteBuffer.allocate(bufferSize);
 		writeBuffer = ByteBuffer.allocateDirect(bufferSize);
 	}
 
 	public void bind (Selector selector, InetSocketAddress localPort) throws IOException {
 		close();
+		readBuffer.clear();
+		writeBuffer.clear();
 		try {
 			datagramChannel = selector.provider().openDatagramChannel();
 			datagramChannel.socket().bind(localPort);
@@ -50,6 +50,8 @@ class UdpConnection {
 
 	public void connect (Selector selector, InetSocketAddress remoteAddress) throws IOException {
 		close();
+		readBuffer.clear();
+		writeBuffer.clear();
 		try {
 			datagramChannel = selector.provider().openDatagramChannel();
 			datagramChannel.socket().bind(null);
@@ -79,14 +81,15 @@ class UdpConnection {
 	public Object readObject (Connection connection) {
 		readBuffer.flip();
 		try {
-			Context context = Kryo.getContext();
-			context.put("connection", connection);
-			if (connection != null) context.setRemoteEntityID(connection.id);
-			Object object = kryo.readClassAndObject(readBuffer);
-			if (readBuffer.hasRemaining())
-				throw new SerializationException("Incorrect number of bytes (" + readBuffer.remaining()
-					+ " remaining) used to deserialize object: " + object);
-			return object;
+			try {
+				Object object = serialization.read(connection, readBuffer);
+				if (readBuffer.hasRemaining())
+					throw new KryoNetException("Incorrect number of bytes (" + readBuffer.remaining()
+						+ " remaining) used to deserialize object: " + object);
+				return object;
+			} catch (Exception ex) {
+				throw new KryoNetException("Error during serialization.", ex);
+			}
 		} finally {
 			readBuffer.clear();
 		}
@@ -98,10 +101,7 @@ class UdpConnection {
 		if (datagramChannel == null) throw new SocketException("Connection is closed.");
 		synchronized (writeLock) {
 			try {
-				Context context = Kryo.getContext();
-				context.put("connection", connection);
-				context.setRemoteEntityID(connection.id);
-				kryo.writeClassAndObject(writeBuffer, object);
+				serialization.write(connection, writeBuffer, object);
 				writeBuffer.flip();
 				int length = writeBuffer.limit();
 				datagramChannel.send(writeBuffer, address);
@@ -117,8 +117,6 @@ class UdpConnection {
 	}
 
 	public void close () {
-		readBuffer.clear();
-		writeBuffer.clear();
 		connectedAddress = null;
 		try {
 			if (datagramChannel != null) {

@@ -1,13 +1,10 @@
 
 package com.esotericsoftware.kryonet.rmi;
 
-import static com.esotericsoftware.minlog.Log.*;
-
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -15,17 +12,20 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.PriorityQueue;
 
-import com.esotericsoftware.kryo.CustomSerialization;
 import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.SerializationException;
+import com.esotericsoftware.kryo.KryoException;
+import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.Serializer;
-import com.esotericsoftware.kryo.serialize.FieldSerializer;
-import com.esotericsoftware.kryo.serialize.IntSerializer;
-import com.esotericsoftware.kryo.util.IntHashMap;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
+import com.esotericsoftware.kryo.util.IntMap;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.EndPoint;
 import com.esotericsoftware.kryonet.FrameworkMessage;
 import com.esotericsoftware.kryonet.Listener;
+
+import static com.esotericsoftware.minlog.Log.*;
 
 /** Allows methods on objects to be invoked remotely over TCP. Objects are {@link #register(int, Object) registered} with an ID.
  * The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
@@ -40,7 +40,7 @@ public class ObjectSpace {
 	static ObjectSpace[] instances = new ObjectSpace[0];
 	static private final HashMap<Class, CachedMethod[]> methodCache = new HashMap();
 
-	final IntHashMap idToObject = new IntHashMap();
+	final IntMap idToObject = new IntMap();
 	Connection[] connections = {};
 	final Object connectionsLock = new Object();
 
@@ -264,6 +264,13 @@ public class ObjectSpace {
 					if (ignoreResponses) throw new IllegalStateException("This RemoteObject is configured to ignore all responses.");
 					return waitForResponse((Byte)args[0]);
 				}
+			} else if (method.getDeclaringClass() == Object.class) {
+				if (method.getName().equals("toString")) return "<proxy>";
+				try {
+					return method.invoke(proxy, args);
+				} catch (Exception ex) {
+					throw new RuntimeException(ex);
+				}
 			}
 
 			InvokeMethod invokeMethod = new InvokeMethod();
@@ -343,24 +350,24 @@ public class ObjectSpace {
 	}
 
 	/** Internal message to invoke methods remotely. */
-	static public class InvokeMethod implements FrameworkMessage, CustomSerialization {
+	static public class InvokeMethod implements FrameworkMessage, KryoSerializable {
 		public int objectID;
 		public Method method;
 		public Object[] args;
 		public byte responseID;
 
-		public void writeObjectData (Kryo kryo, ByteBuffer buffer) {
-			IntSerializer.put(buffer, objectID, true);
+		public void write (Kryo kryo, Output output) {
+			output.writeInt(objectID, true);
 
-			int methodClassID = kryo.getRegisteredClass(method.getDeclaringClass()).getID();
-			IntSerializer.put(buffer, methodClassID, true);
+			int methodClassID = kryo.getRegistration(method.getDeclaringClass()).getId();
+			output.writeInt(methodClassID, true);
 
 			CachedMethod[] cachedMethods = getMethods(kryo, method.getDeclaringClass());
 			CachedMethod cachedMethod = null;
 			for (int i = 0, n = cachedMethods.length; i < n; i++) {
 				cachedMethod = cachedMethods[i];
 				if (cachedMethod.method.equals(method)) {
-					buffer.put((byte)i);
+					output.writeByte(i);
 					break;
 				}
 			}
@@ -368,25 +375,25 @@ public class ObjectSpace {
 			for (int i = 0, n = cachedMethod.serializers.length; i < n; i++) {
 				Serializer serializer = cachedMethod.serializers[i];
 				if (serializer != null)
-					serializer.writeObject(buffer, args[i]);
+					kryo.writeObjectOrNull(output, args[i], serializer);
 				else
-					kryo.writeClassAndObject(buffer, args[i]);
+					kryo.writeClassAndObject(output, args[i]);
 			}
 
-			if (method.getReturnType() != void.class) buffer.put(responseID);
+			if (method.getReturnType() != void.class) output.writeByte(responseID);
 		}
 
-		public void readObjectData (Kryo kryo, ByteBuffer buffer) {
-			objectID = IntSerializer.get(buffer, true);
+		public void read (Kryo kryo, Input input) {
+			objectID = input.readInt(true);
 
-			int methodClassID = IntSerializer.get(buffer, true);
-			Class methodClass = kryo.getRegisteredClass(methodClassID).getType();
-			byte methodIndex = buffer.get();
+			int methodClassID = input.readInt(true);
+			Class methodClass = kryo.getRegistration(methodClassID).getType();
+			byte methodIndex = input.readByte();
 			CachedMethod cachedMethod;
 			try {
 				cachedMethod = getMethods(kryo, methodClass)[methodIndex];
 			} catch (IndexOutOfBoundsException ex) {
-				throw new SerializationException("Invalid method index " + methodIndex + " for class: " + methodClass.getName());
+				throw new KryoException("Invalid method index " + methodIndex + " for class: " + methodClass.getName());
 			}
 			method = cachedMethod.method;
 
@@ -394,12 +401,12 @@ public class ObjectSpace {
 			for (int i = 0, n = args.length; i < n; i++) {
 				Serializer serializer = cachedMethod.serializers[i];
 				if (serializer != null)
-					args[i] = serializer.readObject(buffer, method.getParameterTypes()[i]);
+					args[i] = kryo.readObjectOrNull(input, method.getParameterTypes()[i], serializer);
 				else
-					args[i] = kryo.readClassAndObject(buffer);
+					args[i] = kryo.readClassAndObject(input);
 			}
 
-			if (method.getReturnType() != void.class) responseID = buffer.get();
+			if (method.getReturnType() != void.class) responseID = input.readByte();
 		}
 	}
 
@@ -455,7 +462,7 @@ public class ObjectSpace {
 			Class[] parameterTypes = cachedMethod.method.getParameterTypes();
 			cachedMethod.serializers = new Serializer[parameterTypes.length];
 			for (int ii = 0, nn = parameterTypes.length; ii < nn; ii++)
-				if (Kryo.isFinal(parameterTypes[ii])) cachedMethod.serializers[ii] = kryo.getSerializer(parameterTypes[ii]);
+				if (kryo.isFinal(parameterTypes[ii])) cachedMethod.serializers[ii] = kryo.getSerializer(parameterTypes[ii]);
 
 			cachedMethods[i] = cachedMethod;
 		}
@@ -481,27 +488,34 @@ public class ObjectSpace {
 	}
 
 	/** Registers the classes needed to use ObjectSpaces. This should be called before any connections are opened.
-	 * @see EndPoint#getKryo()
 	 * @see Kryo#register(Class, Serializer) */
-	static public void registerClasses (Kryo kryo) {
+	static public void registerClasses (final Kryo kryo) {
 		kryo.register(Object[].class);
 		kryo.register(InvokeMethod.class);
 
 		FieldSerializer serializer = (FieldSerializer)kryo.register(InvokeMethodResult.class).getSerializer();
-		serializer.getField("objectID").setClass(int.class, new IntSerializer(true));
-
-		kryo.register(InvocationHandler.class, new Serializer() {
-			public void writeObjectData (ByteBuffer buffer, Object object) {
-				RemoteInvocationHandler handler = (RemoteInvocationHandler)Proxy.getInvocationHandler(object);
-				IntSerializer.put(buffer, handler.objectID, true);
+		serializer.getField("objectID").setClass(int.class, new Serializer<Integer>() {
+			public void write (Kryo kryo, Output output, Integer object) {
+				output.writeInt(object, true);
 			}
 
-			public <T> T readObjectData (ByteBuffer buffer, Class<T> type) {
-				int objectID = IntSerializer.get(buffer, true);
-				Connection connection = (Connection)Kryo.getContext().get("connection");
+			public Integer create (Kryo kryo, Input input, Class<Integer> type) {
+				return input.readInt(true);
+			}
+		});
+
+		kryo.register(InvocationHandler.class, new Serializer() {
+			public void write (Kryo kryo, Output output, Object object) {
+				RemoteInvocationHandler handler = (RemoteInvocationHandler)Proxy.getInvocationHandler(object);
+				output.writeInt(handler.objectID, true);
+			}
+
+			public Object create (Kryo kryo, Input input, Class type) {
+				int objectID = input.readInt(true);
+				Connection connection = (Connection)kryo.getContext().get("connection");
 				Object object = getRegisteredObject(connection, objectID);
 				if (WARN && object == null) warn("kryonet", "Unknown object ID " + objectID + " for connection: " + connection);
-				return (T)object;
+				return object;
 			}
 		});
 	}

@@ -5,9 +5,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.compress.DeflateCompressor;
-import com.esotericsoftware.kryo.serialize.CollectionSerializer;
-import com.esotericsoftware.kryo.serialize.FieldSerializer;
+import com.esotericsoftware.kryo.serializers.CollectionSerializer;
+import com.esotericsoftware.kryo.serializers.DeflateSerializer;
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
 import com.esotericsoftware.kryonet.Client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.KryoNetTestCase;
@@ -60,7 +60,7 @@ public class DeflateTest extends KryoNetTestCase {
 
 	static public void register (Kryo kryo) {
 		kryo.register(short[].class);
-		kryo.register(SomeData.class, new DeflateCompressor(new FieldSerializer(kryo, SomeData.class)));
+		kryo.register(SomeData.class, new DeflateSerializer(new FieldSerializer(kryo, SomeData.class)));
 		kryo.register(ArrayList.class, new CollectionSerializer(kryo));
 	}
 
