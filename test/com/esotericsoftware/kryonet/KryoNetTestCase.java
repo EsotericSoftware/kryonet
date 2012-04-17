@@ -35,7 +35,7 @@ abstract public class KryoNetTestCase extends TestCase {
 
 	public void startEndPoint (EndPoint endPoint) {
 		endPoints.add(endPoint);
-		Thread thread = new Thread(endPoint);
+		Thread thread = new Thread(endPoint, endPoint.getClass().getSimpleName());
 		threads.add(thread);
 		thread.start();
 	}
