@@ -20,7 +20,6 @@ public class KryoSerialization implements Serialization {
 	private final Output output;
 	private final ByteBufferInputStream byteBufferInputStream = new ByteBufferInputStream();
 	private final ByteBufferOutputStream byteBufferOutputStream = new ByteBufferOutputStream();
-	volatile boolean running;
 
 	public KryoSerialization () {
 		this(new Kryo());
@@ -39,13 +38,6 @@ public class KryoSerialization implements Serialization {
 
 		input = new Input(byteBufferInputStream, 512);
 		output = new Output(byteBufferOutputStream, 512);
-
-		new Thread() {
-			public void run () {
-				while (running) {
-				}
-			}
-		}.start();
 	}
 
 	public Kryo getKryo () {
