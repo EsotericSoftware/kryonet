@@ -207,6 +207,7 @@ public class PositionServer {
 
 	Character loadCharacter (String name) {
 		File file = new File("characters", name.toLowerCase());
+		if (!file.exists()) return null;
 		DataInputStream input = null;
 		try {
 			input = new DataInputStream(new FileInputStream(file));

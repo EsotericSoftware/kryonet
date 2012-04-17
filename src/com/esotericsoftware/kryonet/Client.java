@@ -20,8 +20,6 @@ import java.util.List;
 import java.util.Set;
 
 import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.SerializationException;
-import com.esotericsoftware.kryo.serialize.IntSerializer;
 import com.esotericsoftware.kryonet.FrameworkMessage.DiscoverHost;
 import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
@@ -41,7 +39,7 @@ public class Client extends Connection implements EndPoint {
 		}
 	}
 
-	private final Kryo kryo;
+	private final Serialization serialization;
 	private Selector selector;
 	private volatile boolean tcpRegistered, udpRegistered;
 	private Object tcpRegistrationLock = new Object();
@@ -74,21 +72,16 @@ public class Client extends Connection implements EndPoint {
 	 *           <p>
 	 *           The object buffers should be sized at least as large as the largest object that will be sent or received. */
 	public Client (int writeBufferSize, int objectBufferSize) {
-		this(writeBufferSize, objectBufferSize, new Kryo());
+		this(writeBufferSize, objectBufferSize, new KryoSerialization());
 	}
 
-	public Client (int writeBufferSize, int objectBufferSize, Kryo kryo) {
+	public Client (int writeBufferSize, int objectBufferSize, Serialization serialization) {
 		super();
 		endPoint = this;
 
-		this.kryo = kryo;
-		kryo.register(RegisterTCP.class);
-		kryo.register(RegisterUDP.class);
-		kryo.register(KeepAlive.class);
-		kryo.register(DiscoverHost.class);
-		kryo.register(Ping.class);
+		this.serialization = serialization;
 
-		initialize(kryo, writeBufferSize, objectBufferSize);
+		initialize(serialization, writeBufferSize, objectBufferSize);
 
 		try {
 			selector = Selector.open();
@@ -97,8 +90,12 @@ public class Client extends Connection implements EndPoint {
 		}
 	}
 
+	public Serialization getSerialization () {
+		return serialization;
+	}
+
 	public Kryo getKryo () {
-		return kryo;
+		return ((KryoSerialization)serialization).getKryo();
 	}
 
 	/** Opens a TCP only client.
@@ -142,7 +139,7 @@ public class Client extends Connection implements EndPoint {
 		}
 		id = -1;
 		try {
-			if (udpPort != -1) udp = new UdpConnection(kryo, tcp.readBuffer.capacity());
+			if (udpPort != -1) udp = new UdpConnection(serialization, tcp.readBuffer.capacity());
 
 			long endTime;
 			synchronized (updateLock) {
@@ -218,13 +215,13 @@ public class Client extends Connection implements EndPoint {
 		}
 		int select = 0;
 		if (timeout > 0) {
-		    select = selector.select(timeout);
+			select = selector.select(timeout);
 		} else {
-		    select = selector.selectNow();
+			select = selector.selectNow();
 		}
 		if (select == 0) {
-		    Thread.yield();
-		    return;
+			Thread.yield();
+			return;
 		}
 		Set<SelectionKey> keys = selector.selectedKeys();
 		synchronized (keys) {
@@ -326,7 +323,7 @@ public class Client extends Connection implements EndPoint {
 						debug("kryonet", "Unable to update connection: " + ex.getMessage());
 				}
 				close();
-			} catch (SerializationException ex) {
+			} catch (KryoNetException ex) {
 				if (ERROR) {
 					if (isConnected)
 						error("kryonet", "Error updating connection: " + this, ex);
@@ -387,9 +384,8 @@ public class Client extends Connection implements EndPoint {
 	}
 
 	private void broadcast (int udpPort, DatagramSocket socket) throws IOException {
-		int classID = kryo.getRegisteredClass(DiscoverHost.class).getID();
-		ByteBuffer dataBuffer = ByteBuffer.allocate(4);
-		IntSerializer.put(dataBuffer, classID, true);
+		ByteBuffer dataBuffer = ByteBuffer.allocate(64);
+		serialization.write(null, dataBuffer, new DiscoverHost());
 		dataBuffer.flip();
 		byte[] data = new byte[dataBuffer.limit()];
 		dataBuffer.get(data);
