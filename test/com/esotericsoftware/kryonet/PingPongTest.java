@@ -73,7 +73,7 @@ public class PingPongTest extends KryoNetTestCase {
 			}
 		});
 
-		client.connect(99995000, host, tcpPort, udpPort);
+		client.connect(5000, host, tcpPort, udpPort);
 
 		waitForThreads(5000);
 	}
