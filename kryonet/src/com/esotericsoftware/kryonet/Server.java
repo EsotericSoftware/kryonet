@@ -59,6 +59,12 @@ public class Server implements EndPoint {
 			for (int i = 0, n = listeners.length; i < n; i++)
 				listeners[i].received(connection, object);
 		}
+
+		public void idle (Connection connection) {
+			Listener[] listeners = Server.this.listeners;
+			for (int i = 0, n = listeners.length; i < n; i++)
+				listeners[i].idle(connection);
+		}
 	};
 
 	/** Creates a Server with a write buffer size of 16384 and an object buffer size of 2048. */
@@ -149,20 +155,25 @@ public class Server implements EndPoint {
 		updateThread = Thread.currentThread();
 		synchronized (updateLock) { // Blocks to avoid a select while the selector is used to bind the server connection.
 		}
+		long startTime = System.currentTimeMillis();
 		int select = 0;
 		if (timeout > 0) {
 			select = selector.select(timeout);
 		} else {
 			select = selector.selectNow();
 		}
-		if (select == 0)
-			Thread.yield();
-		else {
+		if (select == 0) {
+			// NIO freaks and returns immediately with 0 sometimes, so try to keep from hogging the CPU.
+			long elapsedTime = System.currentTimeMillis() - startTime;
+			try {
+				if (elapsedTime < 25) Thread.sleep(25 - elapsedTime);
+			} catch (InterruptedException ex) {
+			}
+		} else {
 			Set<SelectionKey> keys = selector.selectedKeys();
 			synchronized (keys) {
 				UdpConnection udp = this.udp;
 				outer:
-				//
 				for (Iterator<SelectionKey> iter = keys.iterator(); iter.hasNext();) {
 					SelectionKey selectionKey = iter.next();
 					iter.remove();
@@ -319,6 +330,7 @@ public class Server implements EndPoint {
 			} else {
 				if (connection.tcp.needsKeepAlive(time)) connection.sendTCP(FrameworkMessage.keepAlive);
 			}
+			if (connection.isIdle()) connection.notifyIdle();
 		}
 	}
 
@@ -327,7 +339,7 @@ public class Server implements EndPoint {
 		shutdown = false;
 		while (!shutdown) {
 			try {
-				update(500);
+				update(250);
 			} catch (IOException ex) {
 				if (ERROR) error("kryonet", "Error updating server connections.", ex);
 				close();

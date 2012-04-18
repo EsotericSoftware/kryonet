@@ -31,6 +31,10 @@ public class Listener {
 	public void received (Connection connection, Object object) {
 	}
 
+	/** Called when the connection is below the {@link Connection#setIdleThreshold(float) idle threshold}. */
+	public void idle (Connection connection) {
+	}
+
 	/** Uses reflection to called "received(Connection, XXX)" on the listener, where XXX is the received object type. Note this
 	 * class uses a HashMap lookup and (cached) reflection, so is not as efficient as writing a series of "instanceof" statements. */
 	static public class ReflectionListener extends Listener {
@@ -96,6 +100,14 @@ public class Listener {
 			queue(new Runnable() {
 				public void run () {
 					listener.received(connection, object);
+				}
+			});
+		}
+
+		public void idle (final Connection connection) {
+			queue(new Runnable() {
+				public void run () {
+					listener.idle(connection);
 				}
 			});
 		}

@@ -21,6 +21,7 @@ class TcpConnection {
 	final ByteBuffer readBuffer, writeBuffer;
 	boolean bufferPositionFix;
 	int timeoutMillis = 12000;
+	float idleThreshold = 0.1f;
 
 	final Serialization serialization;
 	private SelectionKey selectionKey;
@@ -198,8 +199,11 @@ class TcpConnection {
 
 			// Write to socket if no data was queued.
 			if (start == 0 && !writeToSocket(writeBuffer)) {
-				// A partial write occurred, set OP_WRITE to be notified when more writing can occur.
+				// A partial write, set OP_WRITE to be notified when more writing can occur.
 				selectionKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+			} else {
+				// Full write, wake up selector so idle event will be fired.
+				selectionKey.selector().wakeup();
 			}
 
 			if (DEBUG || TRACE) {

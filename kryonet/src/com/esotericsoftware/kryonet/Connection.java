@@ -220,6 +220,14 @@ public class Connection {
 			listeners[i].disconnected(this);
 	}
 
+	void notifyIdle () {
+		Listener[] listeners = this.listeners;
+		for (int i = 0, n = listeners.length; i < n; i++) {
+			listeners[i].idle(this);
+			if (!isIdle()) break;
+		}
+	}
+
 	void notifyReceived (Object object) {
 		if (object instanceof Ping) {
 			Ping ping = (Ping)object;
@@ -269,16 +277,27 @@ public class Connection {
 		tcp.bufferPositionFix = bufferPositionFix;
 	}
 
-	/** Returns the number of bytes that are waiting to be written to the TCP socket, if any. */
-	public int getTcpWriteBufferSize () {
-		return tcp.writeBuffer.position();
-	}
-
 	/** Sets the friendly name of this connection. This is returned by {@link #toString()} and is useful for providing application
 	 * specific identifying information in the logging. May be null for the default name of "Connection X", where X is the
 	 * connection ID. */
 	public void setName (String name) {
 		this.name = name;
+	}
+
+	/** Returns the number of bytes that are waiting to be written to the TCP socket, if any. */
+	public int getTcpWriteBufferSize () {
+		return tcp.writeBuffer.position();
+	}
+
+	/** @see #setIdleThreshold(float) */
+	public boolean isIdle () {
+		return tcp.writeBuffer.position() / tcp.writeBuffer.capacity() < tcp.idleThreshold;
+	}
+
+	/** If the percent of the TCP write buffer that is filled is less than the specified threshold,
+	 * {@link Listener#idle(Connection)} will be called for each network thread update. Default is 0.1. */
+	public void setIdleThreshold (float idleThreshold) {
+		tcp.idleThreshold = idleThreshold;
 	}
 
 	public String toString () {
