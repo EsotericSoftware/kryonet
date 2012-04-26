@@ -96,6 +96,20 @@ public class ObjectSpace {
 		if (TRACE) trace("kryonet", "Object registered with ObjectSpace as " + objectID + ": " + object);
 	}
 
+	/** Removes an object. The remote end of the ObjectSpace's connections will no longer be able to access it. */
+	public void remove (int objectID) {
+		Object object = idToObject.remove(objectID);
+		if (TRACE) trace("kryonet", "Object " + objectID + " removed from ObjectSpace: " + object);
+	}
+
+	/** Removes an object. The remote end of the ObjectSpace's connections will no longer be able to access it. */
+	public void remove (Object object) {
+		if (!idToObject.containsValue(object, true)) return;
+		int objectID = idToObject.findKey(object, true, -1);
+		idToObject.remove(objectID);
+		if (TRACE) trace("kryonet", "Object " + objectID + " removed from ObjectSpace: " + object);
+	}
+
 	/** Causes this ObjectSpace to stop listening to the connections for method invocation messages. */
 	public void close () {
 		Connection[] connections = this.connections;
