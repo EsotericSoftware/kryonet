@@ -7,5 +7,6 @@
 	<classpathentry kind="lib" path="build/junit-4.6.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/kryo2"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/jsonbeans"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/minlog"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

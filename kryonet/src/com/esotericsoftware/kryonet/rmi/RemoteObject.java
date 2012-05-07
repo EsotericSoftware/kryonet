@@ -1,6 +1,8 @@
 
 package com.esotericsoftware.kryonet.rmi;
 
+import com.esotericsoftware.kryonet.Connection;
+
 /** Provides access to various settings on a remote object.
  * @see ObjectSpace#getRemoteObject(com.esotericsoftware.kryonet.Connection, int, Class...)
  * @author Nathan Sweet <misc@n4te.com> */
@@ -33,4 +35,7 @@ public interface RemoteObject {
 
 	/** Causes this RemoteObject to stop listening to the connection for method invocation response messages. */
 	public void close ();
+
+	/** Returns the local connection for this remote object. */
+	public Connection getConnection ();
 }
