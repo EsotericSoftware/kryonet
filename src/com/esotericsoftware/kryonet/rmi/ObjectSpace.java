@@ -277,6 +277,8 @@ public class ObjectSpace {
 				} else if (name.equals("waitForResponse")) {
 					if (ignoreResponses) throw new IllegalStateException("This RemoteObject is configured to ignore all responses.");
 					return waitForResponse((Byte)args[0]);
+				} else if (name.equals("getConnection")) {
+					return connection;
 				}
 			} else if (method.getDeclaringClass() == Object.class) {
 				if (method.getName().equals("toString")) return "<proxy>";
