@@ -1,5 +1,4 @@
 version: 2.08
-dependencies: ../kryo
 ---
 Build.build(project);
 Build.oneJAR(project);
