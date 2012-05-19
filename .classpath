@@ -7,9 +7,9 @@
 	<classpathentry kind="lib" path="build/junit-4.6.jar"/>
 	<classpathentry exported="true" kind="lib" path="lib/asm-4.0.jar"/>
 	<classpathentry exported="true" kind="lib" path="lib/jsonbeans-0.2.jar"/>
-	<classpathentry exported="true" kind="lib" path="lib/kryo-debug-2.08.jar"/>
 	<classpathentry exported="true" kind="lib" path="lib/minlog-1.2.jar"/>
 	<classpathentry exported="true" kind="lib" path="lib/objenesis-1.2.jar"/>
 	<classpathentry exported="true" kind="lib" path="lib/reflectasm-1.03.jar"/>
+	<classpathentry kind="lib" path="lib/kryo-debug-2.09.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
