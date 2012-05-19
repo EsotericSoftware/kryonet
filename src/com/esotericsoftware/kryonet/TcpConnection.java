@@ -134,7 +134,6 @@ class TcpConnection {
 		int startPosition = readBuffer.position();
 		int oldLimit = readBuffer.limit();
 		readBuffer.limit(startPosition + length);
-
 		Object object = serialization.read(connection, readBuffer);
 
 		readBuffer.limit(oldLimit);
@@ -147,20 +146,19 @@ class TcpConnection {
 
 	public void writeOperation () throws IOException {
 		synchronized (writeLock) {
-			writeBuffer.flip();
-			if (writeToSocket(writeBuffer)) {
+			if (writeToSocket()) {
 				// Write successful, clear OP_WRITE.
 				selectionKey.interestOps(SelectionKey.OP_READ);
 			}
-			writeBuffer.compact();
 			lastWriteTime = System.currentTimeMillis();
 		}
 	}
 
-	private boolean writeToSocket (ByteBuffer buffer) throws IOException {
+	private boolean writeToSocket () throws IOException {
 		SocketChannel socketChannel = this.socketChannel;
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
 
+		ByteBuffer buffer = writeBuffer;
 		buffer.flip();
 		while (buffer.hasRemaining()) {
 			if (bufferPositionFix) {
@@ -198,7 +196,7 @@ class TcpConnection {
 			writeBuffer.position(end);
 
 			// Write to socket if no data was queued.
-			if (start == 0 && !writeToSocket(writeBuffer)) {
+			if (start == 0 && !writeToSocket()) {
 				// A partial write, set OP_WRITE to be notified when more writing can occur.
 				selectionKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
 			} else {
@@ -236,8 +234,6 @@ class TcpConnection {
 	}
 
 	public boolean isTimedOut (long time) {
-		if (socketChannel != null && timeoutMillis > 0 && time - lastReadTime > timeoutMillis)
-			System.out.println(time - lastReadTime);
 		return socketChannel != null && timeoutMillis > 0 && time - lastReadTime > timeoutMillis;
 	}
 }
