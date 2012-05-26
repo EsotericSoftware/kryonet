@@ -162,6 +162,7 @@ public class Server implements EndPoint {
 		} else {
 			select = selector.selectNow();
 		}
+		System.out.println(select);
 		if (select == 0) {
 			// NIO freaks and returns immediately with 0 sometimes, so try to keep from hogging the CPU.
 			long elapsedTime = System.currentTimeMillis() - startTime;
@@ -181,9 +182,11 @@ public class Server implements EndPoint {
 						int ops = selectionKey.readyOps();
 						Connection fromConnection = (Connection)selectionKey.attachment();
 
-						if (fromConnection != null) {
-							// Must be a TCP read or write operation.
-							if (udp != null && fromConnection.udpRemoteAddress == null) continue;
+						if (fromConnection != null) { // Must be a TCP read or write operation.
+							if (udp != null && fromConnection.udpRemoteAddress == null) {
+								fromConnection.close();
+								continue;
+							}
 							if ((ops & SelectionKey.OP_READ) == SelectionKey.OP_READ) {
 								try {
 									while (true) {
