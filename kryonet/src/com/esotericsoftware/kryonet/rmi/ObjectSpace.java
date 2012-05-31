@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.PriorityQueue;
+import java.util.concurrent.Executor;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoException;
@@ -43,9 +44,10 @@ public class ObjectSpace {
 	final IntMap idToObject = new IntMap();
 	Connection[] connections = {};
 	final Object connectionsLock = new Object();
+	Executor executor;
 
 	private final Listener invokeListener = new Listener() {
-		public void received (Connection connection, Object object) {
+		public void received (final Connection connection, Object object) {
 			if (!(object instanceof InvokeMethod)) return;
 			if (connections != null) {
 				int i = 0, n = connections.length;
@@ -53,13 +55,21 @@ public class ObjectSpace {
 					if (connection == connections[i]) break;
 				if (i == n) return; // The InvokeMethod message is not for a connection in this ObjectSpace.
 			}
-			InvokeMethod invokeMethod = (InvokeMethod)object;
-			Object target = idToObject.get(invokeMethod.objectID);
+			final InvokeMethod invokeMethod = (InvokeMethod)object;
+			final Object target = idToObject.get(invokeMethod.objectID);
 			if (target == null) {
 				if (WARN) warn("kryonet", "Ignoring remote invocation request for unknown object ID: " + invokeMethod.objectID);
 				return;
 			}
-			invoke(connection, target, invokeMethod);
+			if (executor == null)
+				invoke(connection, target, invokeMethod);
+			else {
+				executor.execute(new Runnable() {
+					public void run () {
+						invoke(connection, target, invokeMethod);
+					}
+				});
+			}
 		}
 
 		public void disconnected (Connection connection) {
@@ -83,6 +93,13 @@ public class ObjectSpace {
 	public ObjectSpace (Connection connection) {
 		this();
 		addConnection(connection);
+	}
+
+	/** Sets the executor used to invoke methods when an invocation is received from a remote endpoint. By default, no executor is
+	 * set and invocations occur on the network thread, which should not be blocked for long.
+	 * @param executor May be null. */
+	public void setExecutor (Executor executor) {
+		this.executor = executor;
 	}
 
 	/** Registers an object to allow the remote end of the ObjectSpace's connections to access it using the specified ID.
@@ -157,8 +174,8 @@ public class ObjectSpace {
 	}
 
 	/** Invokes the method on the object and, if necessary, sends the result back to the connection that made the invocation
-	 * request. This method is invoked on the update thread of the {@link EndPoint} for this ObjectSpace and can be overridden to
-	 * perform invocations on a different thread.
+	 * request. This method is invoked on the update thread of the {@link EndPoint} for this ObjectSpace and unless an
+	 * {@link #setExecutor(Executor) executor} has been set.
 	 * @param connection The remote side of this connection requested the invocation. */
 	protected void invoke (Connection connection, Object target, InvokeMethod invokeMethod) {
 		if (DEBUG) {
@@ -539,5 +556,21 @@ public class ObjectSpace {
 	static class CachedMethod {
 		Method method;
 		Serializer[] serializers;
+	}
+
+	public static void main (String[] args) throws Exception {
+		new ObjectSpace() {
+			void invokeInternal (Connection connection, Object target, InvokeMethod invokeMethod) {
+				super.invoke(connection, target, invokeMethod);
+			}
+
+			protected void invoke (final Connection connection, final Object target, final InvokeMethod invokeMethod) {
+				new Thread() {
+					public void run () {
+						invokeInternal(connection, target, invokeMethod);
+					}
+				}.start();
+			}
+		};
 	}
 }
