@@ -178,9 +178,9 @@ public class Server implements EndPoint {
 				for (Iterator<SelectionKey> iter = keys.iterator(); iter.hasNext();) {
 					SelectionKey selectionKey = iter.next();
 					iter.remove();
+					Connection fromConnection = (Connection)selectionKey.attachment();
 					try {
 						int ops = selectionKey.readyOps();
-						Connection fromConnection = (Connection)selectionKey.attachment();
 
 						if (fromConnection != null) { // Must be a TCP read or write operation.
 							if (udp != null && fromConnection.udpRemoteAddress == null) {
@@ -242,7 +242,10 @@ public class Server implements EndPoint {
 						}
 
 						// Must be a UDP read operation.
-						if (udp == null) continue;
+						if (udp == null) {
+							selectionKey.channel().close();
+							continue;
+						}
 						InetSocketAddress fromAddress;
 						try {
 							fromAddress = udp.readFromAddress();
@@ -317,8 +320,11 @@ public class Server implements EndPoint {
 							continue;
 						}
 						if (DEBUG) debug("kryonet", "Ignoring UDP from unregistered address: " + fromAddress);
-					} catch (CancelledKeyException ignored) {
-						// Connection is closed.
+					} catch (CancelledKeyException ex) {
+						if (fromConnection != null)
+							fromConnection.close();
+						else
+							selectionKey.channel().close();
 					}
 				}
 			}
