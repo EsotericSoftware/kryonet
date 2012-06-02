@@ -162,7 +162,6 @@ public class Server implements EndPoint {
 		} else {
 			select = selector.selectNow();
 		}
-		System.out.println(select);
 		if (select == 0) {
 			// NIO freaks and returns immediately with 0 sometimes, so try to keep from hogging the CPU.
 			long elapsedTime = System.currentTimeMillis() - startTime;
