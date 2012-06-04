@@ -73,7 +73,7 @@ class TcpConnection {
 			SocketChannel socketChannel = selector.provider().openSocketChannel();
 			Socket socket = socketChannel.socket();
 			socket.setTcpNoDelay(true);
-			socket.setTrafficClass(IPTOS_LOWDELAY);
+			// socket.setTrafficClass(IPTOS_LOWDELAY);
 			socket.connect(remoteAddress, timeout); // Connect using blocking mode for simplicity.
 			socketChannel.configureBlocking(false);
 			this.socketChannel = socketChannel;
