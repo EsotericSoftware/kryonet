@@ -291,7 +291,7 @@ public class Connection {
 
 	/** @see #setIdleThreshold(float) */
 	public boolean isIdle () {
-		return tcp.writeBuffer.position() / tcp.writeBuffer.capacity() < tcp.idleThreshold;
+		return tcp.writeBuffer.position() / (float)tcp.writeBuffer.capacity() < tcp.idleThreshold;
 	}
 
 	/** If the percent of the TCP write buffer that is filled is less than the specified threshold,
