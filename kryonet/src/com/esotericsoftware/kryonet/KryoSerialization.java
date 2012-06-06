@@ -44,14 +44,14 @@ public class KryoSerialization implements Serialization {
 		return kryo;
 	}
 
-	public void write (Connection connection, ByteBuffer buffer, Object object) {
+	public synchronized void write (Connection connection, ByteBuffer buffer, Object object) {
 		byteBufferOutputStream.setByteBuffer(buffer);
 		kryo.getContext().put("connection", connection);
 		kryo.writeClassAndObject(output, object);
 		output.flush();
 	}
 
-	public Object read (Connection connection, ByteBuffer buffer) {
+	public synchronized Object read (Connection connection, ByteBuffer buffer) {
 		byteBufferInputStream.setByteBuffer(buffer);
 		kryo.getContext().put("connection", connection);
 		return kryo.readClassAndObject(input);
