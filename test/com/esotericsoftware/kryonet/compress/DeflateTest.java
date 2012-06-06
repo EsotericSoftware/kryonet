@@ -61,7 +61,7 @@ public class DeflateTest extends KryoNetTestCase {
 	static public void register (Kryo kryo) {
 		kryo.register(short[].class);
 		kryo.register(SomeData.class, new DeflateSerializer(new FieldSerializer(kryo, SomeData.class)));
-		kryo.register(ArrayList.class, new CollectionSerializer(kryo));
+		kryo.register(ArrayList.class, new CollectionSerializer());
 	}
 
 	static public class SomeData {
