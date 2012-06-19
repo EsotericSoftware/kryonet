@@ -343,7 +343,17 @@ public class Client extends Connection implements EndPoint {
 	}
 
 	public void start () {
-		new Thread(this, "Client").start();
+		// Try to let any previous update thread stop.
+		if (updateThread != null) {
+			shutdown = true;
+			try {
+				updateThread.join(5000);
+			} catch (InterruptedException ignored) {
+			}
+		}
+		updateThread = new Thread(this, "Client");
+		updateThread.setDaemon(true);
+		updateThread.start();
 	}
 
 	public void stop () {
