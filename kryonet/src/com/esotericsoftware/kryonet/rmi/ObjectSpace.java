@@ -532,7 +532,7 @@ public class ObjectSpace {
 				output.writeInt(object, true);
 			}
 
-			public Integer create (Kryo kryo, Input input, Class<Integer> type) {
+			public Integer read (Kryo kryo, Input input, Class<Integer> type) {
 				return input.readInt(true);
 			}
 		});
@@ -543,7 +543,7 @@ public class ObjectSpace {
 				output.writeInt(handler.objectID, true);
 			}
 
-			public Object create (Kryo kryo, Input input, Class type) {
+			public Object read (Kryo kryo, Input input, Class type) {
 				int objectID = input.readInt(true);
 				Connection connection = (Connection)kryo.getContext().get("connection");
 				Object object = getRegisteredObject(connection, objectID);
@@ -556,21 +556,5 @@ public class ObjectSpace {
 	static class CachedMethod {
 		Method method;
 		Serializer[] serializers;
-	}
-
-	public static void main (String[] args) throws Exception {
-		new ObjectSpace() {
-			void invokeInternal (Connection connection, Object target, InvokeMethod invokeMethod) {
-				super.invoke(connection, target, invokeMethod);
-			}
-
-			protected void invoke (final Connection connection, final Object target, final InvokeMethod invokeMethod) {
-				new Thread() {
-					public void run () {
-						invokeInternal(connection, target, invokeMethod);
-					}
-				}.start();
-			}
-		};
 	}
 }
