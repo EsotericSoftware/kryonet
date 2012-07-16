@@ -406,7 +406,6 @@ public class Client extends Connection implements EndPoint {
 		dataBuffer.get(data);
 		for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
 			for (InetAddress address : Collections.list(iface.getInetAddresses())) {
-				if (!address.isSiteLocalAddress()) continue;
 				// Java 1.5 doesn't support getting the subnet mask, so try the two most common.
 				byte[] ip = address.getAddress();
 				ip[3] = -1; // 255.255.255.0
