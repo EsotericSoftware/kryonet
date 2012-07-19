@@ -2,6 +2,7 @@
 package com.esotericsoftware.kryonet.rmi;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
@@ -33,10 +34,13 @@ import static com.esotericsoftware.minlog.Log.*;
  * {@link #getRemoteObject(Connection, int, Class) access} registered objects.
  * <p>
  * It costs at least 2 bytes more to use remote method invocation than just sending the parameters. If the method has a return
- * value which is not {@link RemoteObject#setNonBlocking(boolean, boolean) ignored}, an extra byte is written. If the type of a
- * parameter is not final (note primitives are final) then an extra byte is written for that parameter.
+ * value which is not {@link RemoteObject#setNonBlocking(boolean) ignored}, an extra byte is written. If the type of a parameter is
+ * not final (note primitives are final) then an extra byte is written for that parameter.
  * @author Nathan Sweet <misc@n4te.com> */
 public class ObjectSpace {
+	static private final byte kReturnValMask = (byte)0x80; // 1000 0000
+	static private final byte kReturnExMask = (byte)0x40; // 0100 0000
+
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
 	static private final HashMap<Class, CachedMethod[]> methodCache = new HashMap();
@@ -188,21 +192,38 @@ public class ObjectSpace {
 				+ "(" + argString + ")");
 		}
 
-		Object result;
+		byte responseID = invokeMethod.responseID;
+		boolean transmitReturnVal = (responseID & kReturnValMask) == kReturnValMask;
+		boolean transmitExceptions = (responseID & kReturnExMask) == kReturnExMask;
+
+		Object result = null;
 		Method method = invokeMethod.method;
 		try {
 			result = method.invoke(target, invokeMethod.args);
+			// Catch exceptions caused by the Method#invoke
+		} catch (InvocationTargetException ex) {
+			if (transmitExceptions)
+				result = ex.getCause();
+			else
+				throw new RuntimeException("Error invoking method: " + method.getDeclaringClass().getName() + "." + method.getName(),
+					ex);
 		} catch (Exception ex) {
 			throw new RuntimeException("Error invoking method: " + method.getDeclaringClass().getName() + "." + method.getName(), ex);
 		}
 
-		byte responseID = invokeMethod.responseID;
-		if (method.getReturnType() == void.class || responseID == 0) return;
+		if (responseID == 0) return;
 
 		InvokeMethodResult invokeMethodResult = new InvokeMethodResult();
 		invokeMethodResult.objectID = invokeMethod.objectID;
 		invokeMethodResult.responseID = responseID;
-		invokeMethodResult.result = result;
+
+		// Do not return non-primitives if transmitReturnVal is false
+		if (!transmitReturnVal && !invokeMethod.method.getReturnType().isPrimitive()) {
+			invokeMethodResult.result = null;
+		} else {
+			invokeMethodResult.result = result;
+		}
+
 		int length = connection.sendTCP(invokeMethodResult);
 		if (DEBUG) debug("kryonet", connection + " sent: " + result + " (" + length + ")");
 	}
@@ -221,9 +242,9 @@ public class ObjectSpace {
 	 * Methods that return a value will throw {@link TimeoutException} if the response is not received with the
 	 * {@link RemoteObject#setResponseTimeout(int) response timeout}.
 	 * <p>
-	 * If {@link RemoteObject#setNonBlocking(boolean, boolean) non-blocking} is false (the default), then methods that return a
-	 * value must not be called from the update thread for the connection. An exception will be thrown if this occurs. Methods with
-	 * a void return value can be called on the update thread.
+	 * If {@link RemoteObject#setNonBlocking(boolean) non-blocking} is false (the default), then methods that return a value must
+	 * not be called from the update thread for the connection. An exception will be thrown if this occurs. Methods with a void
+	 * return value can be called on the update thread.
 	 * <p>
 	 * If a proxy returned from this method is part of an object graph sent over the network, the object graph on the receiving
 	 * side will have the proxy object replaced with the registered object.
@@ -243,10 +264,12 @@ public class ObjectSpace {
 		private final Connection connection;
 		final int objectID;
 		private int timeoutMillis = 3000;
-		private boolean nonBlocking, ignoreResponses;
+		private boolean nonBlocking = false;
+		private boolean transmitReturnValue = true;
+		private boolean transmitExceptions = true;
 		private Byte lastResponseID;
 		final ArrayList<InvokeMethodResult> responseQueue = new ArrayList();
-		private byte nextResponseID = 1;
+		private byte nextResponseNum = 1;
 		private Listener responseListener;
 
 		public RemoteInvocationHandler (Connection connection, final int objectID) {
@@ -272,7 +295,7 @@ public class ObjectSpace {
 			connection.addListener(responseListener);
 		}
 
-		public Object invoke (Object proxy, Method method, Object[] args) {
+		public Object invoke (Object proxy, Method method, Object[] args) throws Exception {
 			if (method.getDeclaringClass() == RemoteObject.class) {
 				String name = method.getName();
 				if (name.equals("close")) {
@@ -283,7 +306,12 @@ public class ObjectSpace {
 					return null;
 				} else if (name.equals("setNonBlocking")) {
 					nonBlocking = (Boolean)args[0];
-					ignoreResponses = (Boolean)args[1];
+					return null;
+				} else if (name.equals("setTransmitReturnValue")) {
+					transmitReturnValue = (Boolean)args[0];
+					return null;
+				} else if (name.equals("setTransmitExceptions")) {
+					transmitExceptions = (Boolean)args[0];
 					return null;
 				} else if (name.equals("waitForLastResponse")) {
 					if (lastResponseID == null) throw new IllegalStateException("There is no last response to wait for.");
@@ -292,10 +320,15 @@ public class ObjectSpace {
 					if (lastResponseID == null) throw new IllegalStateException("There is no last response ID.");
 					return lastResponseID;
 				} else if (name.equals("waitForResponse")) {
-					if (ignoreResponses) throw new IllegalStateException("This RemoteObject is configured to ignore all responses.");
+					if (!transmitReturnValue && !transmitExceptions && nonBlocking)
+						throw new IllegalStateException("This RemoteObject is currently set to ignore all responses.");
 					return waitForResponse((Byte)args[0]);
 				} else if (name.equals("getConnection")) {
 					return connection;
+				}
+				// Should never happen, for debugging purposes only
+				else {
+					throw new RuntimeException("Invocation handler could not find RemoteObject method. Check ObjectSpace.java");
 				}
 			} else if (method.getDeclaringClass() == Object.class) {
 				if (method.getName().equals("toString")) return "<proxy>";
@@ -310,11 +343,20 @@ public class ObjectSpace {
 			invokeMethod.objectID = objectID;
 			invokeMethod.method = method;
 			invokeMethod.args = args;
-			boolean hasReturnValue = method.getReturnType() != void.class;
-			if (hasReturnValue && !ignoreResponses) {
-				byte responseID = nextResponseID++;
-				if (nextResponseID == 0) nextResponseID++; // Zero means don't send back a response.
+
+			// The only time a invocation doesn't need a response is if it's async
+			// and no return values or exceptions are wanted back.
+			boolean needsResponse = transmitReturnValue || transmitExceptions || !nonBlocking;
+			if (needsResponse) {
+				// Increment the response counter and put it into the first six bits of the responseID byte
+				byte responseID = nextResponseNum++;
+				if (nextResponseNum == 64) nextResponseNum = 1; // Keep number under 2^6, avoid 0 (see else statement below)
+				// Pack return value and exception info into the top two bits
+				if (transmitReturnValue) responseID |= kReturnValMask;
+				if (transmitExceptions) responseID |= kReturnExMask;
 				invokeMethod.responseID = responseID;
+			} else {
+				invokeMethod.responseID = 0; // A response info of 0 means to not respond
 			}
 			int length = connection.sendTCP(invokeMethod);
 			if (DEBUG) {
@@ -327,9 +369,8 @@ public class ObjectSpace {
 					+ argString + ") (" + length + ")");
 			}
 
-			if (!hasReturnValue) return null;
+			if (invokeMethod.responseID != 0) lastResponseID = invokeMethod.responseID;
 			if (nonBlocking) {
-				if (!ignoreResponses) lastResponseID = invokeMethod.responseID;
 				Class returnType = method.getReturnType();
 				if (returnType.isPrimitive()) {
 					if (returnType == int.class) return 0;
@@ -344,13 +385,17 @@ public class ObjectSpace {
 				return null;
 			}
 			try {
-				return waitForResponse(invokeMethod.responseID);
+				Object result = waitForResponse(invokeMethod.responseID);
+				if (result != null && result instanceof Exception)
+					throw (Exception)result;
+				else
+					return result;
 			} catch (TimeoutException ex) {
 				throw new TimeoutException("Response timed out: " + method.getDeclaringClass().getName() + "." + method.getName());
 			}
 		}
 
-		private Object waitForResponse (int responseID) {
+		private Object waitForResponse (byte responseID) {
 			if (connection.getEndPoint().getUpdateThread() == Thread.currentThread())
 				throw new IllegalStateException("Cannot wait for an RMI response on the connection's update thread.");
 
@@ -387,6 +432,9 @@ public class ObjectSpace {
 		public int objectID;
 		public Method method;
 		public Object[] args;
+		// The top two bytes of the ID indicate if the remote invocation should respond with return values and exceptions,
+		// respectively. The rest is a six bit counter. This means up to 63 responses can be stored before undefined behavior
+		// occurs due to possible duplicate IDs.
 		public byte responseID;
 
 		public void write (Kryo kryo, Output output) {
@@ -413,7 +461,7 @@ public class ObjectSpace {
 					kryo.writeClassAndObject(output, args[i]);
 			}
 
-			if (method.getReturnType() != void.class) output.writeByte(responseID);
+			output.writeByte(responseID);
 		}
 
 		public void read (Kryo kryo, Input input) {
@@ -439,7 +487,7 @@ public class ObjectSpace {
 					args[i] = kryo.readClassAndObject(input);
 			}
 
-			if (method.getReturnType() != void.class) responseID = input.readByte();
+			responseID = input.readByte();
 		}
 	}
 

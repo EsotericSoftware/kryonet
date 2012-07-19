@@ -69,19 +69,50 @@ public class RmiTest extends KryoNetTestCase {
 	static public void runTest (final Connection connection, final int id, final float other) {
 		new Thread() {
 			public void run () {
-				TestObject test = ObjectSpace.getRemoteObject(connection, (short)id, TestObject.class);
+				TestObject test = ObjectSpace.getRemoteObject(connection, id, TestObject.class);
 				RemoteObject remoteObject = (RemoteObject)test;
-
+				// Default behavior. RMI is transparent, method calls behave like normal
+				// (return values and exceptions are returned, call is synchronous)
 				test.moo();
-				remoteObject.setResponseTimeout(500);
 				test.moo("Cow");
 				assertEquals(other, test.other());
 
-				remoteObject.setNonBlocking(true, true);
+				// Test that RMI correctly waits for the remotely invoked method to exit
+				remoteObject.setResponseTimeout(5000);
+				test.moo("You should see this two seconds before...", 2000);
+				System.out.println("...This");
+				remoteObject.setResponseTimeout(1000);
+
+				// Try exception handling
+				boolean caught = false;
+				try {
+				    test.asplode();
+				} catch(UnsupportedOperationException ex) {
+				    caught = true;
+				}
+				assertTrue(caught);
+
+				// Return values are ignored, but exceptions are still dealt with properly
+
+				remoteObject.setTransmitReturnValue(false);
+				test.moo("Baa");
+				test.other();
+				caught = false;
+                try {
+                    test.asplode();
+                } catch(UnsupportedOperationException ex) {
+                    caught = true;
+                }
+                assertTrue(caught);
+
+                // Non-blocking call that ignores the return value
+				remoteObject.setNonBlocking(true);
+				remoteObject.setTransmitReturnValue(false);
 				test.moo("Meow");
 				assertEquals(0f, test.other());
 
-				remoteObject.setNonBlocking(true, false);
+				// Non-blocking call that returns the return value
+				remoteObject.setTransmitReturnValue(true);
 				test.moo("Foo");
 
 				assertEquals(0f, test.other());
@@ -90,6 +121,15 @@ public class RmiTest extends KryoNetTestCase {
 				assertEquals(0f, test.other());
 				byte responseID = remoteObject.getLastResponseID();
 				assertEquals(other, remoteObject.waitForResponse(responseID));
+
+				// Non-blocking call that errors out
+				remoteObject.setTransmitReturnValue(false);
+				test.asplode();
+				assertEquals(remoteObject.waitForLastResponse().getClass(), UnsupportedOperationException.class);
+
+				// Call will time out if non-blocking isn't working properly
+				remoteObject.setTransmitExceptions(false);
+				test.moo("Mooooooooo", 3000);
 
 				// Test sending a reference to a remote object.
 				MessageWithTestObject m = new MessageWithTestObject();
@@ -104,13 +144,20 @@ public class RmiTest extends KryoNetTestCase {
 	static public void register (Kryo kryo) {
 		kryo.register(TestObject.class);
 		kryo.register(MessageWithTestObject.class);
+		kryo.register(StackTraceElement.class);
+		kryo.register(StackTraceElement[].class);
+		kryo.register(UnsupportedOperationException.class);
 		ObjectSpace.registerClasses(kryo);
 	}
 
 	static public interface TestObject {
+	    public void asplode();
+
 		public void moo ();
 
 		public void moo (String value);
+
+		public void moo (String value, long delay);
 
 		public float other ();
 	}
@@ -123,12 +170,26 @@ public class RmiTest extends KryoNetTestCase {
 			this.other = other;
 		}
 
+		public void asplode() {
+		    throw new UnsupportedOperationException("Why would I do that?");
+		}
+
 		public void moo () {
 			System.out.println("Moo!");
 		}
 
 		public void moo (String value) {
 			System.out.println("Moo: " + value);
+		}
+
+		public void moo (String value, long delay) {
+		    System.out.println("Moo: " + value);
+		    try {
+                Thread.sleep(delay);
+            }
+            catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 		}
 
 		public float other () {
