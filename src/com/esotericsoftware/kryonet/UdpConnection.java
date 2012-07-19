@@ -86,7 +86,7 @@ class UdpConnection {
 						+ " remaining) used to deserialize object: " + object);
 				return object;
 			} catch (Exception ex) {
-				throw new KryoNetException("Error during serialization.", ex);
+				throw new KryoNetException("Error during deserialization.", ex);
 			}
 		} finally {
 			readBuffer.clear();
@@ -99,7 +99,11 @@ class UdpConnection {
 		if (datagramChannel == null) throw new SocketException("Connection is closed.");
 		synchronized (writeLock) {
 			try {
-				serialization.write(connection, writeBuffer, object);
+				try {
+					serialization.write(connection, writeBuffer, object);
+				} catch (Exception ex) {
+					throw new KryoNetException("Error serializing object of type: " + object.getClass().getName(), ex);
+				}
 				writeBuffer.flip();
 				int length = writeBuffer.limit();
 				datagramChannel.send(writeBuffer, address);
