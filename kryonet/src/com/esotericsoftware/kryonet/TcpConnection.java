@@ -134,7 +134,12 @@ class TcpConnection {
 		int startPosition = readBuffer.position();
 		int oldLimit = readBuffer.limit();
 		readBuffer.limit(startPosition + length);
-		Object object = serialization.read(connection, readBuffer);
+		Object object;
+		try {
+			object = serialization.read(connection, readBuffer);
+		} catch (Exception ex) {
+			throw new KryoNetException("Error during deserialization.", ex);
+		}
 
 		readBuffer.limit(oldLimit);
 		if (readBuffer.position() - startPosition != length)
@@ -186,7 +191,7 @@ class TcpConnection {
 			try {
 				serialization.write(connection, writeBuffer, object);
 			} catch (KryoNetException ex) {
-				throw new KryoNetException("Unable to serialize object of type: " + object.getClass().getName(), ex);
+				throw new KryoNetException("Error serializing object of type: " + object.getClass().getName(), ex);
 			}
 			int end = writeBuffer.position();
 
