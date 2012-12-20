@@ -409,9 +409,15 @@ public class Client extends Connection implements EndPoint {
 				// Java 1.5 doesn't support getting the subnet mask, so try the two most common.
 				byte[] ip = address.getAddress();
 				ip[3] = -1; // 255.255.255.0
-				socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
+				try {
+					socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
+				} catch (Exception ignored) {
+				}
 				ip[2] = -1; // 255.255.0.0
-				socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
+				try {
+					socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
+				} catch (Exception ignored) {
+				}
 			}
 		}
 		if (DEBUG) debug("kryonet", "Broadcasted host discovery on port: " + udpPort);
