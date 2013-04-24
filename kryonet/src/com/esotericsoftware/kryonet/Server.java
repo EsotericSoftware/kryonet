@@ -28,6 +28,7 @@ public class Server implements EndPoint {
 	private final Serialization serialization;
 	private final int writeBufferSize, objectBufferSize;
 	private final Selector selector;
+	private int emptySelects;
 	private ServerSocketChannel serverChannel;
 	private UdpConnection udp;
 	private Connection[] connections = {};
@@ -163,13 +164,18 @@ public class Server implements EndPoint {
 			select = selector.selectNow();
 		}
 		if (select == 0) {
-			// NIO freaks and returns immediately with 0 sometimes, so try to keep from hogging the CPU.
-			long elapsedTime = System.currentTimeMillis() - startTime;
-			try {
-				if (elapsedTime < 25) Thread.sleep(25 - elapsedTime);
-			} catch (InterruptedException ex) {
+			emptySelects++;
+			if (emptySelects == 100) {
+				emptySelects = 0;
+				// NIO freaks and returns immediately with 0 sometimes, so try to keep from hogging the CPU.
+				long elapsedTime = System.currentTimeMillis() - startTime;
+				try {
+					if (elapsedTime < 25) Thread.sleep(25 - elapsedTime);
+				} catch (InterruptedException ex) {
+				}
 			}
 		} else {
+			emptySelects = 0;
 			Set<SelectionKey> keys = selector.selectedKeys();
 			synchronized (keys) {
 				UdpConnection udp = this.udp;
