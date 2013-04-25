@@ -1,15 +1,16 @@
 
 package com.esotericsoftware.kryonet;
 
+import com.esotericsoftware.jsonbeans.JsonWriter;
+
 import java.io.IOException;
+import java.io.StringWriter;
 import java.util.Arrays;
 
 public class JsonTest extends KryoNetTestCase {
 	String fail;
 
 	public void testJson () throws IOException {
-		if (true) return; // Disabled for now (JSON format forces float and can botch data, eg long->float->long).
-
 		fail = null;
 
 		final Data dataTCP = new Data();
@@ -71,7 +72,7 @@ public class JsonTest extends KryoNetTestCase {
 			}
 		});
 
-		client.connect(99995000, host, tcpPort, udpPort);
+		client.connect(5000, host, tcpPort, udpPort);
 
 		waitForThreads(5000);
 
@@ -89,13 +90,12 @@ public class JsonTest extends KryoNetTestCase {
 		data.strings = new String[] {"abcdefghijklmnopqrstuvwxyz0123456789", "", null, "!@#$", "�����"};
 		data.ints = new int[] {-1234567, 1234567, -1, 0, 1, Integer.MAX_VALUE, Integer.MIN_VALUE};
 		data.shorts = new short[] {-12345, 12345, -1, 0, 1, Short.MAX_VALUE, Short.MIN_VALUE};
-		data.floats = new float[] {0, -0, 1, -1, 123456, -123456, 0.1f, 0.2f, -0.3f, (float)Math.PI, Float.MAX_VALUE,
-			Float.MIN_VALUE};
+		data.floats = new float[] {0, 1, -1, 123456, -123456, 0.1f, 0.2f, -0.3f, (float)Math.PI, Float.MAX_VALUE, Float.MIN_VALUE};
 		data.bytes = new byte[] {-123, 123, -1, 0, 1, Byte.MAX_VALUE, Byte.MIN_VALUE};
 		data.booleans = new boolean[] {true, false};
 		data.Ints = new Integer[] {-1234567, 1234567, -1, 0, 1, Integer.MAX_VALUE, Integer.MIN_VALUE};
 		data.Shorts = new Short[] {-12345, 12345, -1, 0, 1, Short.MAX_VALUE, Short.MIN_VALUE};
-		data.Floats = new Float[] {0f, -0f, 1f, -1f, 123456f, -123456f, 0.1f, 0.2f, -0.3f, (float)Math.PI, Float.MAX_VALUE,
+		data.Floats = new Float[] {0f, 1f, -1f, 123456f, -123456f, 0.1f, 0.2f, -0.3f, (float)Math.PI, Float.MAX_VALUE,
 			Float.MIN_VALUE};
 		data.Bytes = new Byte[] {-123, 123, -1, 0, 1, Byte.MAX_VALUE, Byte.MIN_VALUE};
 		data.Booleans = new Boolean[] {true, false};

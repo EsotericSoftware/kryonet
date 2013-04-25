@@ -39,6 +39,7 @@ public class Client extends Connection implements EndPoint {
 
 	private final Serialization serialization;
 	private Selector selector;
+	private int emptySelects;
 	private volatile boolean tcpRegistered, udpRegistered;
 	private Object tcpRegistrationLock = new Object();
 	private Object udpRegistrationLock = new Object();
@@ -49,6 +50,7 @@ public class Client extends Connection implements EndPoint {
 	private InetAddress connectHost;
 	private int connectTcpPort;
 	private int connectUdpPort;
+	private boolean isClosed;
 
 	/** Creates a Client with a write buffer size of 8192 and an object buffer size of 2048. */
 	public Client () {
@@ -219,13 +221,19 @@ public class Client extends Connection implements EndPoint {
 			select = selector.selectNow();
 		}
 		if (select == 0) {
-			// NIO freaks and returns immediately with 0 sometimes, so try to keep from hogging the CPU.
-			long elapsedTime = System.currentTimeMillis() - startTime;
-			try {
-				if (elapsedTime < 25) Thread.sleep(25 - elapsedTime);
-			} catch (InterruptedException ex) {
+			emptySelects++;
+			if (emptySelects == 100) {
+				emptySelects = 0;
+				// NIO freaks and returns immediately with 0 sometimes, so try to keep from hogging the CPU.
+				long elapsedTime = System.currentTimeMillis() - startTime;
+				try {
+					if (elapsedTime < 25) Thread.sleep(25 - elapsedTime);
+				} catch (InterruptedException ex) {
+				}
 			}
 		} else {
+			emptySelects = 0;
+			isClosed = false;
 			Set<SelectionKey> keys = selector.selectedKeys();
 			synchronized (keys) {
 				for (Iterator<SelectionKey> iter = keys.iterator(); iter.hasNext();) {
@@ -368,10 +376,13 @@ public class Client extends Connection implements EndPoint {
 		super.close();
 		// Select one last time to complete closing the socket.
 		synchronized (updateLock) {
-			selector.wakeup();
-			try {
-				selector.selectNow();
-			} catch (IOException ignored) {
+			if (!isClosed) {
+				isClosed = true;
+				selector.wakeup();
+				try {
+					selector.selectNow();
+				} catch (IOException ignored) {
+				}
 			}
 		}
 	}
