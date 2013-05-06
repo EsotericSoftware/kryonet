@@ -53,7 +53,7 @@ public class KryoSerialization implements Serialization {
 
 	public synchronized Object read (Connection connection, ByteBuffer buffer) {
 		byteBufferInputStream.setByteBuffer(buffer);
-		input.rewind();
+		input.setInputStream(byteBufferInputStream);
 		kryo.getContext().put("connection", connection);
 		return kryo.readClassAndObject(input);
 	}
