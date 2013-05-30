@@ -348,9 +348,12 @@ public class ObjectSpace {
 			// and no return values or exceptions are wanted back.
 			boolean needsResponse = transmitReturnValue || transmitExceptions || !nonBlocking;
 			if (needsResponse) {
-				// Increment the response counter and put it into the first six bits of the responseID byte
-				byte responseID = nextResponseNum++;
-				if (nextResponseNum == 64) nextResponseNum = 1; // Keep number under 2^6, avoid 0 (see else statement below)
+				byte responseID;
+				synchronized (this) {
+					// Increment the response counter and put it into the first six bits of the responseID byte
+					responseID = nextResponseNum++;
+					if (nextResponseNum == 64) nextResponseNum = 1; // Keep number under 2^6, avoid 0 (see else statement below)
+				}
 				// Pack return value and exception info into the top two bits
 				if (transmitReturnValue) responseID |= kReturnValMask;
 				if (transmitExceptions) responseID |= kReturnExMask;
