@@ -1,18 +1,7 @@
 
 package com.esotericsoftware.kryonet.rmi;
 
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.Proxy;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.PriorityQueue;
-import java.util.concurrent.Executor;
+import static com.esotericsoftware.minlog.Log.*;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoException;
@@ -27,7 +16,22 @@ import com.esotericsoftware.kryonet.EndPoint;
 import com.esotericsoftware.kryonet.FrameworkMessage;
 import com.esotericsoftware.kryonet.Listener;
 
-import static com.esotericsoftware.minlog.Log.*;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.PriorityQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 /** Allows methods on objects to be invoked remotely over TCP. Objects are {@link #register(int, Object) registered} with an ID.
  * The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
@@ -268,9 +272,12 @@ public class ObjectSpace {
 		private boolean transmitReturnValue = true;
 		private boolean transmitExceptions = true;
 		private Byte lastResponseID;
-		final ArrayList<InvokeMethodResult> responseQueue = new ArrayList();
 		private byte nextResponseNum = 1;
 		private Listener responseListener;
+
+		final ReentrantLock lock = new ReentrantLock();
+		final Condition responseCondition = lock.newCondition();
+		final ConcurrentHashMap<Byte, InvokeMethodResult> responseTable = new ConcurrentHashMap();
 
 		public RemoteInvocationHandler (Connection connection, final int objectID) {
 			super();
@@ -282,9 +289,14 @@ public class ObjectSpace {
 					if (!(object instanceof InvokeMethodResult)) return;
 					InvokeMethodResult invokeMethodResult = (InvokeMethodResult)object;
 					if (invokeMethodResult.objectID != objectID) return;
-					synchronized (responseQueue) {
-						responseQueue.add(invokeMethodResult);
-						responseQueue.notifyAll();
+
+					responseTable.put(invokeMethodResult.responseID, invokeMethodResult);
+
+					lock.lock();
+					try {
+						responseCondition.signalAll();
+					} finally {
+						lock.unlock();
 					}
 				}
 
@@ -325,9 +337,8 @@ public class ObjectSpace {
 					return waitForResponse((Byte)args[0]);
 				} else if (name.equals("getConnection")) {
 					return connection;
-				}
-				// Should never happen, for debugging purposes only
-				else {
+				} else {
+					// Should never happen, for debugging purposes only
 					throw new RuntimeException("Invocation handler could not find RemoteObject method. Check ObjectSpace.java");
 				}
 			} else if (method.getDeclaringClass() == Object.class) {
@@ -403,23 +414,25 @@ public class ObjectSpace {
 				throw new IllegalStateException("Cannot wait for an RMI response on the connection's update thread.");
 
 			long endTime = System.currentTimeMillis() + timeoutMillis;
-			synchronized (responseQueue) {
-				while (true) {
-					int remaining = (int)(endTime - System.currentTimeMillis());
-					for (int i = responseQueue.size() - 1; i >= 0; i--) {
-						InvokeMethodResult invokeMethodResult = responseQueue.get(i);
-						if (invokeMethodResult.responseID == responseID) {
-							responseQueue.remove(invokeMethodResult);
-							lastResponseID = null;
-							return invokeMethodResult.result;
-						}
-					}
+
+			while (true) {
+				long remaining = endTime - System.currentTimeMillis();
+				if (responseTable.containsKey(responseID)) {
+					InvokeMethodResult invokeMethodResult = responseTable.get(responseID);
+					responseTable.remove(responseID);
+					lastResponseID = null;
+					return invokeMethodResult.result;
+				} else {
 					if (remaining <= 0) throw new TimeoutException("Response timed out.");
+
+					lock.lock();
 					try {
-						responseQueue.wait(remaining);
-					} catch (InterruptedException ex) {
+						responseCondition.await(remaining, TimeUnit.MILLISECONDS);
+					} catch (InterruptedException e) {
 						Thread.currentThread().interrupt();
-						throw new RuntimeException(ex);
+						throw new RuntimeException(e);
+					} finally {
+						lock.unlock();
 					}
 				}
 			}
