@@ -24,7 +24,7 @@ abstract public class InputStreamSender extends TcpIdleSender {
 					if (total == 0) return null;
 					byte[] partial = new byte[total];
 					System.arraycopy(chunk, 0, partial, 0, total);
-					return partial;
+					return next(partial);
 				}
 				total += count;
 			}
