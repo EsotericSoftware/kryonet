@@ -31,19 +31,19 @@
 							<md5>8aca6c467d2a350434f08dd0dce4ba9a</md5>
 						</configuration>
 					</execution>
-				<execution>
-					<id>download-minlog</id>
-					<phase>validate</phase>
-					<goals>
-						<goal>wget</goal>
-					</goals>
-					<configuration>
-						<url>https://minlog.googlecode.com/files/minlog-1.2.zip</url>
-						<unpack>true</unpack>
-						<md5>32552fea7ca0189dde2d15e6948acecb</md5>
-					</configuration>
-				</execution>
-			</executions>
+					<execution>
+						<id>download-minlog</id>
+						<phase>validate</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>https://minlog.googlecode.com/files/minlog-1.2.zip</url>
+							<unpack>true</unpack>
+							<md5>32552fea7ca0189dde2d15e6948acecb</md5>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 			<plugin>
 				<artifactId>maven-install-plugin</artifactId>
