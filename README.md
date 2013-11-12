@@ -1,4 +1,4 @@
-![KryoNet](http://kryonet.googlecode.com/svn/wiki/kryonet-logo.jpg)
+![KryoNet](https://raw.github.com/wiki/EsotericSoftware/kryonet/images/logo.jpg)
 
 Please use the [KryoNet discussion group](http://groups.google.com/group/kryonet-users) for support.
 
