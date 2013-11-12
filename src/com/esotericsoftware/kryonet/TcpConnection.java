@@ -25,7 +25,7 @@ class TcpConnection {
 
 	final Serialization serialization;
 	private SelectionKey selectionKey;
-	private long lastWriteTime, lastReadTime;
+	private volatile long lastWriteTime, lastReadTime;
 	private int currentObjectLength;
 	private final Object writeLock = new Object();
 
