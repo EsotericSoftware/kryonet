@@ -27,14 +27,17 @@ KryoNet is ideal for any client/server application. It is very efficient, so is 
 
 This code starts a server on TCP port 54555 and UDP port 54777:
 
+```java
     Server server = new Server();
     server.start();
     server.bind(54555, 54777);
+```
 
 The `start` method starts a thread to handle incoming connections, reading/writing to the socket, and notifying listeners.
 
 This code adds a listener to handle receiving objects:
 
+```java
     server.addListener(new Listener() {
        public void received (Connection connection, Object object) {
           if (object instanceof SomeRequest) {
@@ -47,19 +50,22 @@ This code adds a listener to handle receiving objects:
           }
        }
     });
-
+```
+	 
 Note the Listener class has other notification methods that can be overridden.
 
 Typically a listener has a series of `instanceof` checks to decide what to do with the object received. In this example, it prints out a string and sends a response over TCP.
 
 The SomeRequest and SomeResponse classes are defined like this:
 
+```java
     public class SomeRequest {
        public String text;
     }
     public class SomeResponse {
        public String text;
     }
+```
 
 [Kryo](http://code.google.com/p/kryo/) automatically serializes the objects to and from bytes.
 
@@ -68,6 +74,7 @@ The SomeRequest and SomeResponse classes are defined like this:
 
 This code connects to a server running on TCP port 54555 and UDP port 54777:
 
+```java
     Client client = new Client();
     client.start();
     client.connect(5000, "192.168.0.4", 54555, 54777);
@@ -75,6 +82,7 @@ This code connects to a server running on TCP port 54555 and UDP port 54777:
     SomeRequest request = new SomeRequest();
     request.text = "Here is the request";
     client.sendTCP(request);
+```
 
 The `start` method starts a thread to handle the outgoing connection, reading/writing to the socket, and notifying listeners. Note that the thread must be started before `connect` is called, else the outgoing connection will fail.
 
@@ -82,6 +90,7 @@ In this example, the `connect` method blocks for a maximum of 5000 milliseconds.
 
 This code adds a listener to print out the response:
 
+```java
     client.addListener(new Listener() {
        public void received (Connection connection, Object object) {
           if (object instanceof SomeResponse) {
@@ -90,18 +99,20 @@ This code adds a listener to print out the response:
           }
        }
     });
-
+```
 
 ## Registering classes
 
 For the above examples to work, the classes that are going to be sent over the network must be registered with the following code:
 
+```java
     Kryo kryo = server.getKryo();
     kryo.register(SomeRequest.class);
     kryo.register(SomeResponse.class);
     Kryo kryo = client.getKryo();
     kryo.register(SomeRequest.class);
     kryo.register(SomeResponse.class);
+```
 
 This must be done on both the client and server, before any network communication occurs. It is very important that the exact same classes are registered on both the client and server, and that they are registered in the exact same order. Because of this, typically the code that registers classes is placed in a method on a class available to both the client and server.
 
@@ -143,8 +154,10 @@ The update thread should never be blocked to wait for an incoming network messag
 
 KryoNet can broadcast a UDP message on the LAN to discover any servers running:
 
+```java
     InetAddress address = client.discoverHost(54777, 5000);
     System.out.println(address);
+```
 
 This will print the address of the first server found running on UDP port 54777. The call will block for up to 5000 milliseconds, waiting for a response.
 
@@ -153,7 +166,9 @@ This will print the address of the first server found running on UDP port 54777.
 
 KryoNet makes use of the low overhead, lightweight [MinLog logging library](http://code.google.com/p/minlog/). The logging level can be set in this way:
 
+```java
     Log.set(LEVEL_TRACE);
+```
 
 KryoNet does minimal logging at INFO and above levels. DEBUG is good to use during development and indicates the total number of bytes for each object sent. TRACE is good to use when debugging a specific problem, but outputs too much information to leave on all the time.
 
@@ -173,23 +188,29 @@ KryoNet has an easy to use mechanism for invoking methods on remote objects (RMI
 
 RMI is done by first creating an ObjectSpace and registering objects with an ID:
 
+```java
     ObjectSpace objectSpace = new ObjectSpace();
     objectSpace.register(42, someObject);
     // ...
     objectSpace.addConnection(connection);
+```
 
 Multiple ObjectSpaces can be created for both the client or server side. Once registered, objects can be used on the other side of the registered connections:
 
+```java
     SomeObject someObject = ObjectSpace.getRemoteObject(connection, 42, SomeObject.class);
     SomeResult result = someObject.doSomething();
+```
 
 The `getRemoteObject` method returns a proxy object that represents the specified class. When a method on the class is called, a message is sent over the connection and on the remote side the method is invoked on the registered object. The method blocks until the return value is sent back over the connection.
 
 Exactly how the remote method invocation is performed can be customized by casting the proxy object to a RemoteObject.
 
+```java
     SomeObject someObject = ObjectSpace.getRemoteObject(connection, 42, SomeObject.class);
     ((RemoteObject)someObject).setNonBlocking(true, true);
     someObject.doSomething();
+```
 
 Note that the SomeObject class does not need to implement RemoteObject, this is handled automatically.
 
@@ -199,6 +220,7 @@ The second `true` passed to `setNonBlocking` indicates that the return value of 
 
 If the second parameter for `setNonBlocking` is false, the server will send back the remote method invocation return value. There are two ways to access a return value for a non-blocking method invocation:
 
+```java
     RemoteObject remoteObject = (RemoteObject)someObject;
     remoteObject.setNonBlocking(true, false);
     someObject.doSomething();
@@ -211,7 +233,7 @@ If the second parameter for `setNonBlocking` is false, the server will send back
     byte responseID = remoteObject.getLastResponseID();
     // ...
     SomeResult result = remoteObject.waitForResponse(responseID);
-
+```
 
 ## KryoNet versus ?
 
