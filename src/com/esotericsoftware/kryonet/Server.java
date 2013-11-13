@@ -181,6 +181,7 @@ public class Server implements EndPoint {
 				UdpConnection udp = this.udp;
 				outer:
 				for (Iterator<SelectionKey> iter = keys.iterator(); iter.hasNext();) {
+					keepAlive();
 					SelectionKey selectionKey = iter.next();
 					iter.remove();
 					Connection fromConnection = (Connection)selectionKey.attachment();
@@ -345,6 +346,15 @@ public class Server implements EndPoint {
 				if (connection.tcp.needsKeepAlive(time)) connection.sendTCP(FrameworkMessage.keepAlive);
 			}
 			if (connection.isIdle()) connection.notifyIdle();
+		}
+	}
+
+	private void keepAlive () {
+		long time = System.currentTimeMillis();
+		Connection[] connections = this.connections;
+		for (int i = 0, n = connections.length; i < n; i++) {
+			Connection connection = connections[i];
+			if (connection.tcp.needsKeepAlive(time)) connection.sendTCP(FrameworkMessage.keepAlive);
 		}
 	}
 

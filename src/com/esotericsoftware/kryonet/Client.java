@@ -237,6 +237,7 @@ public class Client extends Connection implements EndPoint {
 			Set<SelectionKey> keys = selector.selectedKeys();
 			synchronized (keys) {
 				for (Iterator<SelectionKey> iter = keys.iterator(); iter.hasNext();) {
+					keepAlive();
 					SelectionKey selectionKey = iter.next();
 					iter.remove();
 					try {
@@ -276,7 +277,6 @@ public class Client extends Connection implements EndPoint {
 										continue;
 									}
 									if (!isConnected) continue;
-									keepAlive();
 									if (DEBUG) {
 										String objectString = object == null ? "null" : object.getClass().getSimpleName();
 										if (!(object instanceof FrameworkMessage)) {
@@ -291,7 +291,6 @@ public class Client extends Connection implements EndPoint {
 								if (udp.readFromAddress() == null) continue;
 								Object object = udp.readObject(this);
 								if (object == null) continue;
-								keepAlive();
 								if (DEBUG) {
 									String objectString = object == null ? "null" : object.getClass().getSimpleName();
 									debug("kryonet", this + " received UDP: " + objectString);
@@ -311,9 +310,8 @@ public class Client extends Connection implements EndPoint {
 			if (tcp.isTimedOut(time)) {
 				if (DEBUG) debug("kryonet", this + " timed out.");
 				close();
-			} else {
+			} else
 				keepAlive();
-			}
 			if (isIdle()) notifyIdle();
 		}
 	}
