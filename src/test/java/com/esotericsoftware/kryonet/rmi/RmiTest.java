@@ -1,14 +1,14 @@
 
 package com.esotericsoftware.kryonet.rmi;
 
-import java.io.IOException;
-
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryonet.Client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.KryoNetTestCase;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
+
+import java.io.IOException;
 
 public class RmiTest extends KryoNetTestCase {
 	public void testRMI () throws IOException {
@@ -86,9 +86,9 @@ public class RmiTest extends KryoNetTestCase {
 				// Try exception handling
 				boolean caught = false;
 				try {
-				    test.asplode();
-				} catch(UnsupportedOperationException ex) {
-				    caught = true;
+					test.asplode();
+				} catch (UnsupportedOperationException ex) {
+					caught = true;
 				}
 				assertTrue(caught);
 
@@ -98,14 +98,14 @@ public class RmiTest extends KryoNetTestCase {
 				test.moo("Baa");
 				test.other();
 				caught = false;
-                try {
-                    test.asplode();
-                } catch(UnsupportedOperationException ex) {
-                    caught = true;
-                }
-                assertTrue(caught);
+				try {
+					test.asplode();
+				} catch (UnsupportedOperationException ex) {
+					caught = true;
+				}
+				assertTrue(caught);
 
-                // Non-blocking call that ignores the return value
+				// Non-blocking call that ignores the return value
 				remoteObject.setNonBlocking(true);
 				remoteObject.setTransmitReturnValue(false);
 				test.moo("Meow");
@@ -147,11 +147,12 @@ public class RmiTest extends KryoNetTestCase {
 		kryo.register(StackTraceElement.class);
 		kryo.register(StackTraceElement[].class);
 		kryo.register(UnsupportedOperationException.class);
+		kryo.setReferences(true); // Needed for UnsupportedOperationException, which has a circular reference in the cause field.
 		ObjectSpace.registerClasses(kryo);
 	}
 
 	static public interface TestObject {
-	    public void asplode();
+		public void asplode ();
 
 		public void moo ();
 
@@ -170,8 +171,8 @@ public class RmiTest extends KryoNetTestCase {
 			this.other = other;
 		}
 
-		public void asplode() {
-		    throw new UnsupportedOperationException("Why would I do that?");
+		public void asplode () {
+			throw new UnsupportedOperationException("Why would I do that?");
 		}
 
 		public void moo () {
@@ -183,13 +184,12 @@ public class RmiTest extends KryoNetTestCase {
 		}
 
 		public void moo (String value, long delay) {
-		    System.out.println("Moo: " + value);
-		    try {
-                Thread.sleep(delay);
-            }
-            catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+			System.out.println("Moo: " + value);
+			try {
+				Thread.sleep(delay);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 		}
 
 		public float other () {

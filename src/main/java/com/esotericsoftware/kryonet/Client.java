@@ -237,6 +237,7 @@ public class Client extends Connection implements EndPoint {
 			Set<SelectionKey> keys = selector.selectedKeys();
 			synchronized (keys) {
 				for (Iterator<SelectionKey> iter = keys.iterator(); iter.hasNext();) {
+					keepAlive();
 					SelectionKey selectionKey = iter.next();
 					iter.remove();
 					try {
@@ -309,12 +310,17 @@ public class Client extends Connection implements EndPoint {
 			if (tcp.isTimedOut(time)) {
 				if (DEBUG) debug("kryonet", this + " timed out.");
 				close();
-			} else {
-				if (tcp.needsKeepAlive(time)) sendTCP(FrameworkMessage.keepAlive);
-				if (udp != null && udpRegistered && udp.needsKeepAlive(time)) sendUDP(FrameworkMessage.keepAlive);
-			}
+			} else
+				keepAlive();
 			if (isIdle()) notifyIdle();
 		}
+	}
+
+	void keepAlive () {
+		if (!isConnected) return;
+		long time = System.currentTimeMillis();
+		if (tcp.needsKeepAlive(time)) sendTCP(FrameworkMessage.keepAlive);
+		if (udp != null && udpRegistered && udp.needsKeepAlive(time)) sendUDP(FrameworkMessage.keepAlive);
 	}
 
 	public void run () {

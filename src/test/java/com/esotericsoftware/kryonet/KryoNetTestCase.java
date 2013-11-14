@@ -21,7 +21,7 @@ abstract public class KryoNetTestCase extends TestCase {
 
 	public KryoNetTestCase () {
 		// Log.TRACE();
-		Log.DEBUG();
+	//	Log.DEBUG();
 	}
 
 	protected void setUp () throws Exception {

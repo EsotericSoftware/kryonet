@@ -1,3 +1,11 @@
+# Temporary Files
+*~
+.*.swp
+.DS_STORE
+
+# Maven build directory
 target/
+
+# IntelliJ IDEA project files
 .idea/
 *.iml
