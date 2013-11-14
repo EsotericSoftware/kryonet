@@ -1,4 +1,3 @@
-kryonet/bin/
-kryonet/target/
+target/
 .idea/
 *.iml
