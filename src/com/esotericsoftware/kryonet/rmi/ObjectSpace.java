@@ -590,16 +590,21 @@ public class ObjectSpace {
 		kryo.register(Object[].class);
 		kryo.register(InvokeMethod.class);
 
-		FieldSerializer serializer = (FieldSerializer)kryo.register(InvokeMethodResult.class).getSerializer();
-		serializer.getField("objectID").setClass(int.class, new Serializer<Integer>() {
-			public void write (Kryo kryo, Output output, Integer object) {
-				output.writeInt(object, true);
+		FieldSerializer<InvokeMethodResult> resultSerializer = new FieldSerializer<InvokeMethodResult>(kryo,
+			InvokeMethodResult.class) {
+			public void write (Kryo kryo, Output output, InvokeMethodResult result) {
+				super.write(kryo, output, result);
+				output.writeInt(result.objectID, true);
 			}
 
-			public Integer read (Kryo kryo, Input input, Class<Integer> type) {
-				return input.readInt(true);
+			public InvokeMethodResult read (Kryo kryo, Input input, Class<InvokeMethodResult> type) {
+				InvokeMethodResult result = super.read(kryo, input, type);
+				result.objectID = input.readInt(true);
+				return result;
 			}
-		});
+		};
+		resultSerializer.removeField("objectID");
+		kryo.register(InvokeMethodResult.class, resultSerializer);
 
 		kryo.register(InvocationHandler.class, new Serializer() {
 			public void write (Kryo kryo, Output output, Object object) {
