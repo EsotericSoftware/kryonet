@@ -3,5 +3,9 @@
 .*.swp
 .DS_STORE
 
-bin/
+# Maven build directory
 target/
+
+# IntelliJ IDEA project files
+.idea/
+*.iml
