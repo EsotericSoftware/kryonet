@@ -140,7 +140,7 @@ public class Listener {
 	 * separate thread after a delay. Note that only incoming objects are delayed. To delay outgoing objects, use a LagListener at
 	 * the other end of the connection. */
 	static public class LagListener extends QueuedListener {
-		private final ScheduledExecutorService threadPool;
+		protected final ScheduledExecutorService threadPool;
 		private final int lagMillisMin, lagMillisMax;
 		final LinkedList<Runnable> runnables = new LinkedList();
 
@@ -151,11 +151,14 @@ public class Listener {
 			threadPool = Executors.newScheduledThreadPool(1);
 		}
 
+		protected int calculateLag() {
+			return lagMillisMin + (int)(Math.random() * (lagMillisMax - lagMillisMin));
+		}
+		
 		public void queue (Runnable runnable) {
 			synchronized (runnables) {
 				runnables.addFirst(runnable);
 			}
-			int lag = lagMillisMin + (int)(Math.random() * (lagMillisMax - lagMillisMin));
 			threadPool.schedule(new Runnable() {
 				public void run () {
 					Runnable runnable;
@@ -164,7 +167,33 @@ public class Listener {
 					}
 					runnable.run();
 				}
-			}, lag, TimeUnit.MILLISECONDS);
+			}, calculateLag(), TimeUnit.MILLISECONDS);
+		}
+	}
+	
+	/** 
+	 * Delays, reorders and does not make guarantees to the delivery of incoming objects 
+	 * to the wrapped listener (in order to simulate lag, jitter and package loss).
+	 * Notification events are likely processed on a separate thread after a delay. 
+	 * Note that only the delivery of incoming objects is modified. To modify the delivery 
+	 * of outgoing objects, use a LagListener at the other end of the connection. 
+	 */
+	static public class UnreliableListener extends LagListener {
+		private final float lossPercentage;
+
+		public UnreliableListener (int lagMillisMin, int lagMillisMax, float lossPercentage, 
+				Listener listener) {
+			super(lagMillisMin, lagMillisMax, listener);
+			this.lossPercentage = lossPercentage;
+		}
+
+		public void queue (final Runnable runnable) {
+			if (Math.random() >= lossPercentage)
+				threadPool.schedule(new Runnable() {
+					public void run () {
+						runnable.run();
+					}
+				}, calculateLag(), TimeUnit.MILLISECONDS);
 		}
 	}
 }
