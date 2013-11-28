@@ -10,18 +10,18 @@ KryoNet runs on both the desktop and on [Android](http://www.android.com/).
 
 KryoNet is ideal for any client/server application. It is very efficient, so is especially good for games. KryoNet can also be useful for inter-process communication.
 
-- [Running a server](#Running_a_server)
-- [Connecting a client](#Connecting_a_client)
-- [Registering classes](#Registering_classes)
-- [TCP and UDP](#TCP_and_UDP)
-- [Buffer sizes](#Buffer_sizes)
-- [Threading](#Threading)
-- [LAN server discovery](#LAN_server_discovery)
-- [Pluggable Serialization](#Pluggable_Serialization)
-- [Logging](#Logging)
-- [Remote Method Invocation (RMI)](#Remote_Method_Invocation)
-- [KryoNet versus ?](#KryoNet_versus_?)
-- [Further reading](#Further_reading)
+- [Running a server](#running-a-server)
+- [Connecting a client](#connecting-a-client)
+- [Registering classes](#registering-classes)
+- [TCP and UDP](#tcp-and-udp)
+- [Buffer sizes](#buffer-sizes)
+- [Threading](#threading)
+- [LAN server discovery](#lan-server-discovery)
+- [Pluggable Serialization](#pluggable-serialization)
+- [Logging](#logging)
+- [Remote Method Invocation (RMI)](#remote-method-invocation)
+- [KryoNet versus ?](#kryonet-versus-)
+- [Further reading](#further-reading)
 
 ## Running a server
 
