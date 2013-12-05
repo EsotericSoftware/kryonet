@@ -116,7 +116,7 @@ For the above examples to work, the classes that are going to be sent over the n
 
 This must be done on both the client and server, before any network communication occurs. It is very important that the exact same classes are registered on both the client and server, and that they are registered in the exact same order. Because of this, typically the code that registers classes is placed in a method on a class available to both the client and server.
 
-Please see the [Kryo serialization library](http://code.google.com/p/kryo/) for more information on how objects are serialized for network transfer. Kryo can serialize any object and supports data compression (eg, deflate or delta compression).
+Please see the [Kryo serialization library](http://code.google.com/p/kryo/) for more information on how objects are serialized for network transfer. Kryo can serialize any object and supports data compression (eg, deflate compression).
 
 
 ## TCP and UDP
