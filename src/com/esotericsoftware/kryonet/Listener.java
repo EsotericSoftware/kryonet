@@ -173,27 +173,33 @@ public class Listener {
 	
 	/** 
 	 * Delays, reorders and does not make guarantees to the delivery of incoming objects 
-	 * to the wrapped listener (in order to simulate lag, jitter and package loss).
+	 * to the wrapped listener (in order to simulate lag, jitter, package loss and 
+	 * package duplication).
 	 * Notification events are likely processed on a separate thread after a delay. 
 	 * Note that only the delivery of incoming objects is modified. To modify the delivery 
-	 * of outgoing objects, use a LagListener at the other end of the connection. 
+	 * of outgoing objects, use a UnreliableListener at the other end of the connection. 
 	 */
 	static public class UnreliableListener extends LagListener {
 		private final float lossPercentage;
+		private final float duplicationPercentage;
 
 		public UnreliableListener (int lagMillisMin, int lagMillisMax, float lossPercentage, 
-				Listener listener) {
+				float duplicationPercentage, Listener listener) {
 			super(lagMillisMin, lagMillisMax, listener);
 			this.lossPercentage = lossPercentage;
+			this.duplicationPercentage = duplicationPercentage;
 		}
 
 		public void queue (final Runnable runnable) {
-			if (Math.random() >= lossPercentage)
-				threadPool.schedule(new Runnable() {
-					public void run () {
-						runnable.run();
-					}
-				}, calculateLag(), TimeUnit.MILLISECONDS);
+			do {
+				if (Math.random() >= lossPercentage) {
+					threadPool.schedule(new Runnable() {
+						public void run () {
+							runnable.run();
+						}
+					}, calculateLag(), TimeUnit.MILLISECONDS);
+				}
+			} while (Math.random() < duplicationPercentage);
 		}
 	}
 }
