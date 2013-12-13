@@ -93,8 +93,8 @@ public class Client extends Connection implements EndPoint {
 		}
 	}
 	
-	public void setDiscoveryHandler(ClientDiscoveryHandler newDiscoveryResponseHook) {
-		discoveryHandler = newDiscoveryResponseHook;
+	public void setDiscoveryHandler(ClientDiscoveryHandler newDiscoveryHandler) {
+		discoveryHandler = newDiscoveryHandler;
 	}
 
 	public Serialization getSerialization () {

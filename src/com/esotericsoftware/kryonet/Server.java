@@ -106,8 +106,8 @@ public class Server implements EndPoint {
 		}
 	}
 	
-	public void setDiscoveryHandler(ServerDiscoveryHandler newDiscoveryResponseHandler) {
-		discoveryHandler = newDiscoveryResponseHandler;
+	public void setDiscoveryHandler(ServerDiscoveryHandler newDiscoveryHandler) {
+		discoveryHandler = newDiscoveryHandler;
 	}
 
 	public Serialization getSerialization () {
