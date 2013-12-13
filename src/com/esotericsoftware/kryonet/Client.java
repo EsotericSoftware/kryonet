@@ -51,6 +51,7 @@ public class Client extends Connection implements EndPoint {
 	private int connectTcpPort;
 	private int connectUdpPort;
 	private boolean isClosed;
+	private ClientDiscoveryHandler discoveryHandler;
 
 	/** Creates a Client with a write buffer size of 8192 and an object buffer size of 2048. */
 	public Client () {
@@ -80,6 +81,8 @@ public class Client extends Connection implements EndPoint {
 		endPoint = this;
 
 		this.serialization = serialization;
+		
+		this.discoveryHandler = ClientDiscoveryHandler.DEFAULT;
 
 		initialize(serialization, writeBufferSize, objectBufferSize);
 
@@ -88,6 +91,10 @@ public class Client extends Connection implements EndPoint {
 		} catch (IOException ex) {
 			throw new RuntimeException("Error opening selector.", ex);
 		}
+	}
+	
+	public void setDiscoveryHandler(ClientDiscoveryHandler newDiscoveryHandler) {
+		discoveryHandler = newDiscoveryHandler;
 	}
 
 	public Serialization getSerialization () {
@@ -450,7 +457,7 @@ public class Client extends Connection implements EndPoint {
 			socket = new DatagramSocket();
 			broadcast(udpPort, socket);
 			socket.setSoTimeout(timeoutMillis);
-			DatagramPacket packet = new DatagramPacket(new byte[0], 0);
+			DatagramPacket packet = discoveryHandler.onRequestNewDatagramPacket();
 			try {
 				socket.receive(packet);
 			} catch (SocketTimeoutException ex) {
@@ -458,12 +465,14 @@ public class Client extends Connection implements EndPoint {
 				return null;
 			}
 			if (INFO) info("kryonet", "Discovered server: " + packet.getAddress());
+			discoveryHandler.onDiscoveredHost(packet, getKryo());
 			return packet.getAddress();
 		} catch (IOException ex) {
 			if (ERROR) error("kryonet", "Host discovery failed.", ex);
 			return null;
 		} finally {
 			if (socket != null) socket.close();
+			discoveryHandler.onFinally();
 		}
 	}
 
@@ -478,7 +487,7 @@ public class Client extends Connection implements EndPoint {
 			broadcast(udpPort, socket);
 			socket.setSoTimeout(timeoutMillis);
 			while (true) {
-				DatagramPacket packet = new DatagramPacket(new byte[0], 0);
+				DatagramPacket packet = discoveryHandler.onRequestNewDatagramPacket();
 				try {
 					socket.receive(packet);
 				} catch (SocketTimeoutException ex) {
@@ -486,6 +495,7 @@ public class Client extends Connection implements EndPoint {
 					return hosts;
 				}
 				if (INFO) info("kryonet", "Discovered server: " + packet.getAddress());
+				discoveryHandler.onDiscoveredHost(packet, getKryo());
 				hosts.add(packet.getAddress());
 			}
 		} catch (IOException ex) {
@@ -493,6 +503,7 @@ public class Client extends Connection implements EndPoint {
 			return hosts;
 		} finally {
 			if (socket != null) socket.close();
+			discoveryHandler.onFinally();
 		}
 	}
 }

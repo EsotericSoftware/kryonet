@@ -39,7 +39,7 @@ public class Server implements EndPoint {
 	private volatile boolean shutdown;
 	private Object updateLock = new Object();
 	private Thread updateThread;
-	private ByteBuffer emptyBuffer = ByteBuffer.allocate(0);
+	private ServerDiscoveryHandler discoveryHandler;
 
 	private Listener dispatchListener = new Listener() {
 		public void connected (Connection connection) {
@@ -96,12 +96,18 @@ public class Server implements EndPoint {
 		this.objectBufferSize = objectBufferSize;
 
 		this.serialization = serialization;
+		
+		this.discoveryHandler = ServerDiscoveryHandler.DEFAULT;
 
 		try {
 			selector = Selector.open();
 		} catch (IOException ex) {
 			throw new RuntimeException("Error opening selector.", ex);
 		}
+	}
+	
+	public void setDiscoveryHandler(ServerDiscoveryHandler newDiscoveryHandler) {
+		discoveryHandler = newDiscoveryHandler;
 	}
 
 	public Serialization getSerialization () {
@@ -305,8 +311,8 @@ public class Server implements EndPoint {
 							}
 							if (object instanceof DiscoverHost) {
 								try {
-									udp.datagramChannel.send(emptyBuffer, fromAddress);
-									if (DEBUG) debug("kryonet", "Responded to host discovery from: " + fromAddress);
+									boolean responseSent = discoveryHandler.onDiscoverHost(udp, fromAddress, serialization);
+									if (DEBUG && responseSent) debug("kryonet", "Responded to host discovery from: " + fromAddress);
 								} catch (IOException ex) {
 									if (WARN) warn("kryonet", "Error replying to host discovery from: " + fromAddress, ex);
 								}
