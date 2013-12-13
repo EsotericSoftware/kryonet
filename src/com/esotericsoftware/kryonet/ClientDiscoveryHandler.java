@@ -19,7 +19,7 @@ public interface ClientDiscoveryHandler {
 		}
 
 		@Override
-		public void onDiscoveredHost(DatagramPacket packet, Kryo kryo) {
+		public void onDiscoveredHost(DatagramPacket datagramPacket, Kryo kryo) {
 			//
 		}
 
