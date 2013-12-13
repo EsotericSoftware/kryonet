@@ -76,14 +76,12 @@ public class DiscoverHostTest extends KryoNetTestCase {
 		ClientDiscoveryHandler clientDiscoveryHandler = new ClientDiscoveryHandler() {
 
 			private Input input = null;
-			private DatagramPacket datagramPacket = null;
 
 			@Override
 			public DatagramPacket onRequestNewDatagramPacket() {
 				byte[] buffer = new byte[1024];
 				input = new Input(buffer);
-				datagramPacket = new DatagramPacket(buffer, buffer.length);
-				return datagramPacket;
+				return new DatagramPacket(buffer, buffer.length);
 			}
 
 			@Override
