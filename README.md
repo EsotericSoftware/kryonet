@@ -1,6 +1,6 @@
 ![KryoNet](https://raw.github.com/wiki/EsotericSoftware/kryonet/images/logo.jpg)
 
-Please use the [KryoNet discussion group](http://groups.google.com/group/kryonet-users) for support.
+KryoNet can be downloaded on the [releases](https://github.com/EsotericSoftware/kryo/releases) page. Please use the [KryoNet discussion group](http://groups.google.com/group/kryonet-users) for support.
 
 ## Overview
 
