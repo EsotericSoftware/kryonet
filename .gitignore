@@ -5,3 +5,5 @@
 
 bin/
 target/
+.idea/
+*.iml
