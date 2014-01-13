@@ -1,6 +1,6 @@
 ![KryoNet](https://raw.github.com/wiki/EsotericSoftware/kryonet/images/logo.jpg)
 
-Please use the [KryoNet discussion group](http://groups.google.com/group/kryonet-users) for support.
+KryoNet can be downloaded on the [releases](https://github.com/EsotericSoftware/kryonet/releases) page. Please use the [KryoNet discussion group](http://groups.google.com/group/kryonet-users) for support.
 
 ## Overview
 
@@ -10,18 +10,18 @@ KryoNet runs on both the desktop and on [Android](http://www.android.com/).
 
 KryoNet is ideal for any client/server application. It is very efficient, so is especially good for games. KryoNet can also be useful for inter-process communication.
 
-- [Running a server](#Running_a_server)
-- [Connecting a client](#Connecting_a_client)
-- [Registering classes](#Registering_classes)
-- [TCP and UDP](#TCP_and_UDP)
-- [Buffer sizes](#Buffer_sizes)
-- [Threading](#Threading)
-- [LAN server discovery](#LAN_server_discovery)
-- [Pluggable Serialization](#Pluggable_Serialization)
-- [Logging](#Logging)
-- [Remote Method Invocation (RMI)](#Remote_Method_Invocation)
-- [KryoNet versus ?](#KryoNet_versus_?)
-- [Further reading](#Further_reading)
+- [Running a server](#running-a-server)
+- [Connecting a client](#connecting-a-client)
+- [Registering classes](#registering-classes)
+- [TCP and UDP](#tcp-and-udp)
+- [Buffer sizes](#buffer-sizes)
+- [Threading](#threading)
+- [LAN server discovery](#lan-server-discovery)
+- [Pluggable Serialization](#pluggable-serialization)
+- [Logging](#logging)
+- [Remote Method Invocation (RMI)](#remote-method-invocation)
+- [KryoNet versus ?](#kryonet-versus-)
+- [Further reading](#further-reading)
 
 ## Running a server
 
@@ -116,7 +116,7 @@ For the above examples to work, the classes that are going to be sent over the n
 
 This must be done on both the client and server, before any network communication occurs. It is very important that the exact same classes are registered on both the client and server, and that they are registered in the exact same order. Because of this, typically the code that registers classes is placed in a method on a class available to both the client and server.
 
-Please see the [Kryo serialization library](http://code.google.com/p/kryo/) for more information on how objects are serialized for network transfer. Kryo can serialize any object and supports data compression (eg, deflate or delta compression).
+Please see the [Kryo serialization library](http://code.google.com/p/kryo/) for more information on how objects are serialized for network transfer. Kryo can serialize any object and supports data compression (eg, deflate compression).
 
 
 ## TCP and UDP
