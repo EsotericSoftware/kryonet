@@ -199,18 +199,18 @@ public class Client extends Connection implements EndPoint {
 		}
 	}
 
-	/** Calls {@link #connect(int, InetAddress, int) connect} with the values last passed to connect.
+	/** Calls {@link #connect(int, InetAddress, int, int) connect} with the values last passed to connect.
 	 * @throws IllegalStateException if connect has never been called. */
 	public void reconnect () throws IOException {
 		reconnect(connectTimeout);
 	}
 
-	/** Calls {@link #connect(int, InetAddress, int) connect} with the specified timeout and the other values last passed to
+	/** Calls {@link #connect(int, InetAddress, int, int) connect} with the specified timeout and the other values last passed to
 	 * connect.
 	 * @throws IllegalStateException if connect has never been called. */
 	public void reconnect (int timeout) throws IOException {
 		if (connectHost == null) throw new IllegalStateException("This client has never been connected.");
-		connect(connectTimeout, connectHost, connectTcpPort, connectUdpPort);
+		connect(timeout, connectHost, connectTcpPort, connectUdpPort);
 	}
 
 	/** Reads or writes any pending data for this client. Multiple threads should not call this method at the same time.
