@@ -81,7 +81,7 @@ public class Client extends Connection implements EndPoint {
 		endPoint = this;
 
 		this.serialization = serialization;
-		
+
 		this.discoveryHandler = ClientDiscoveryHandler.DEFAULT;
 
 		initialize(serialization, writeBufferSize, objectBufferSize);
@@ -92,8 +92,8 @@ public class Client extends Connection implements EndPoint {
 			throw new RuntimeException("Error opening selector.", ex);
 		}
 	}
-	
-	public void setDiscoveryHandler(ClientDiscoveryHandler newDiscoveryHandler) {
+
+	public void setDiscoveryHandler (ClientDiscoveryHandler newDiscoveryHandler) {
 		discoveryHandler = newDiscoveryHandler;
 	}
 
@@ -398,6 +398,12 @@ public class Client extends Connection implements EndPoint {
 				}
 			}
 		}
+	}
+
+	/** Releases the resources used by this client, which may no longer be used. */
+	public void dispose () throws IOException {
+		close();
+		selector.close();
 	}
 
 	public void addListener (Listener listener) {

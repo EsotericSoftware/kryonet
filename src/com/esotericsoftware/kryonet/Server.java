@@ -96,7 +96,7 @@ public class Server implements EndPoint {
 		this.objectBufferSize = objectBufferSize;
 
 		this.serialization = serialization;
-		
+
 		this.discoveryHandler = ServerDiscoveryHandler.DEFAULT;
 
 		try {
@@ -105,8 +105,8 @@ public class Server implements EndPoint {
 			throw new RuntimeException("Error opening selector.", ex);
 		}
 	}
-	
-	public void setDiscoveryHandler(ServerDiscoveryHandler newDiscoveryHandler) {
+
+	public void setDiscoveryHandler (ServerDiscoveryHandler newDiscoveryHandler) {
 		discoveryHandler = newDiscoveryHandler;
 	}
 
@@ -563,6 +563,12 @@ public class Server implements EndPoint {
 			} catch (IOException ignored) {
 			}
 		}
+	}
+
+	/** Releases the resources used by this server, which may no longer be used. */
+	public void dispose () throws IOException {
+		close();
+		selector.close();
 	}
 
 	public Thread getUpdateThread () {
