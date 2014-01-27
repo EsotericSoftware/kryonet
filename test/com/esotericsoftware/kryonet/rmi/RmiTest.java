@@ -11,15 +11,20 @@ import com.esotericsoftware.kryonet.Server;
 import java.io.IOException;
 
 public class RmiTest extends KryoNetTestCase {
+	/** In this test both the client and server have an ObjectSpace that contains a TestObject. When the client connects, the same
+	 * test is run on both the client and server. The test excersizes a number of remote method calls and other features. */
 	public void testRMI () throws IOException {
 		Server server = new Server();
-		register(server.getKryo());
+		Kryo serverKryo = server.getKryo();
+		register(serverKryo);
+
 		startEndPoint(server);
 		server.bind(tcpPort);
 
-		final ObjectSpace serverObjectSpace = new ObjectSpace();
 		final TestObjectImpl serverTestObject = new TestObjectImpl(4321);
-		serverObjectSpace.register((short)42, serverTestObject);
+
+		final ObjectSpace serverObjectSpace = new ObjectSpace();
+		serverObjectSpace.register(42, serverTestObject);
 
 		server.addListener(new Listener() {
 			public void connected (final Connection connection) {
@@ -44,12 +49,12 @@ public class RmiTest extends KryoNetTestCase {
 
 		ObjectSpace clientObjectSpace = new ObjectSpace(client);
 		final TestObjectImpl clientTestObject = new TestObjectImpl(1234);
-		clientObjectSpace.register((short)12, clientTestObject);
+		clientObjectSpace.register(12, clientTestObject);
 
 		startEndPoint(client);
 		client.addListener(new Listener() {
 			public void connected (final Connection connection) {
-				RmiTest.runTest(connection, 42, 4321);
+				runTest(connection, 42, 4321);
 			}
 
 			public void received (Connection connection, Object object) {
@@ -86,7 +91,7 @@ public class RmiTest extends KryoNetTestCase {
 				// Try exception handling
 				boolean caught = false;
 				try {
-					test.asplode();
+					test.throwException();
 				} catch (UnsupportedOperationException ex) {
 					caught = true;
 				}
@@ -99,7 +104,7 @@ public class RmiTest extends KryoNetTestCase {
 				test.other();
 				caught = false;
 				try {
-					test.asplode();
+					test.throwException();
 				} catch (UnsupportedOperationException ex) {
 					caught = true;
 				}
@@ -124,7 +129,7 @@ public class RmiTest extends KryoNetTestCase {
 
 				// Non-blocking call that errors out
 				remoteObject.setTransmitReturnValue(false);
-				test.asplode();
+				test.throwException();
 				assertEquals(remoteObject.waitForLastResponse().getClass(), UnsupportedOperationException.class);
 
 				// Call will time out if non-blocking isn't working properly
@@ -135,12 +140,13 @@ public class RmiTest extends KryoNetTestCase {
 				MessageWithTestObject m = new MessageWithTestObject();
 				m.number = 678;
 				m.text = "sometext";
-				m.testObject = ObjectSpace.getRemoteObject(connection, (short)id, TestObject.class);
+				m.testObject = ObjectSpace.getRemoteObject(connection, id, TestObject.class);
 				connection.sendTCP(m);
 			}
 		}.start();
 	}
 
+	/** Registers the same classes in the same order on both the client and server. */
 	static public void register (Kryo kryo) {
 		kryo.register(TestObject.class);
 		kryo.register(MessageWithTestObject.class);
@@ -152,7 +158,7 @@ public class RmiTest extends KryoNetTestCase {
 	}
 
 	static public interface TestObject {
-		public void asplode ();
+		public void throwException ();
 
 		public void moo ();
 
@@ -171,7 +177,7 @@ public class RmiTest extends KryoNetTestCase {
 			this.other = other;
 		}
 
-		public void asplode () {
+		public void throwException () {
 			throw new UnsupportedOperationException("Why would I do that?");
 		}
 

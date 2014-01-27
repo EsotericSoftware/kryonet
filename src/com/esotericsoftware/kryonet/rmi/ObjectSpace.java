@@ -6,15 +6,18 @@ import static com.esotericsoftware.minlog.Log.*;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoException;
 import com.esotericsoftware.kryo.KryoSerializable;
+import com.esotericsoftware.kryo.Registration;
 import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.serializers.FieldSerializer;
+import com.esotericsoftware.kryo.util.DefaultClassResolver;
 import com.esotericsoftware.kryo.util.IntMap;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.EndPoint;
 import com.esotericsoftware.kryonet.FrameworkMessage;
 import com.esotericsoftware.kryonet.Listener;
+import com.esotericsoftware.kryonet.util.ObjectIntMap;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
@@ -33,6 +36,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.sun.xml.internal.ws.encoding.soap.SerializationException;
+
 /** Allows methods on objects to be invoked remotely over TCP. Objects are {@link #register(int, Object) registered} with an ID.
  * The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
  * {@link #getRemoteObject(Connection, int, Class) access} registered objects.
@@ -50,6 +55,7 @@ public class ObjectSpace {
 	static private final HashMap<Class, CachedMethod[]> methodCache = new HashMap();
 
 	final IntMap idToObject = new IntMap();
+	final ObjectIntMap objectToID = new ObjectIntMap();
 	Connection[] connections = {};
 	final Object connectionsLock = new Object();
 	Executor executor;
@@ -114,16 +120,20 @@ public class ObjectSpace {
 	 * <p>
 	 * If a connection is added to multiple ObjectSpaces, the same object ID should not be registered in more than one of those
 	 * ObjectSpaces.
+	 * @param objectID Must not be Integer.MAX_VALUE.
 	 * @see #getRemoteObject(Connection, int, Class...) */
 	public void register (int objectID, Object object) {
+		if (objectID == Integer.MAX_VALUE) throw new IllegalArgumentException("objectID cannot be Integer.MAX_VALUE.");
 		if (object == null) throw new IllegalArgumentException("object cannot be null.");
 		idToObject.put(objectID, object);
+		objectToID.put(object, objectID);
 		if (TRACE) trace("kryonet", "Object registered with ObjectSpace as " + objectID + ": " + object);
 	}
 
 	/** Removes an object. The remote end of the ObjectSpace's connections will no longer be able to access it. */
 	public void remove (int objectID) {
 		Object object = idToObject.remove(objectID);
+		if (object != null) objectToID.remove(object, 0);
 		if (TRACE) trace("kryonet", "Object " + objectID + " removed from ObjectSpace: " + object);
 	}
 
@@ -132,6 +142,7 @@ public class ObjectSpace {
 		if (!idToObject.containsValue(object, true)) return;
 		int objectID = idToObject.findKey(object, true, -1);
 		idToObject.remove(objectID);
+		objectToID.remove(object, 0);
 		if (TRACE) trace("kryonet", "Object " + objectID + " removed from ObjectSpace: " + object);
 	}
 
@@ -584,6 +595,24 @@ public class ObjectSpace {
 		return null;
 	}
 
+	/** Returns the first ID registered for the specified object with any of the ObjectSpaces the specified connection belongs to,
+	 * or Integer.MAX_VALUE if not found. */
+	static int getRegisteredID (Connection connection, Object object) {
+		ObjectSpace[] instances = ObjectSpace.instances;
+		for (int i = 0, n = instances.length; i < n; i++) {
+			ObjectSpace objectSpace = instances[i];
+			// Check if the connection is in this ObjectSpace.
+			Connection[] connections = objectSpace.connections;
+			for (int j = 0; j < connections.length; j++) {
+				if (connections[j] != connection) continue;
+				// Find an ID with the object.
+				int id = objectSpace.objectToID.get(object, Integer.MAX_VALUE);
+				if (id != Integer.MAX_VALUE) return id;
+			}
+		}
+		return Integer.MAX_VALUE;
+	}
+
 	/** Registers the classes needed to use ObjectSpaces. This should be called before any connections are opened.
 	 * @see Kryo#register(Class, Serializer) */
 	static public void registerClasses (final Kryo kryo) {
@@ -625,5 +654,23 @@ public class ObjectSpace {
 	static class CachedMethod {
 		Method method;
 		Serializer[] serializers;
+	}
+
+	/** Serializes an object registered with an ObjectSpace so the receiving side gets a {@link RemoteObject} proxy rather than the
+	 * bytes for the serialized object.
+	 * @author Nathan Sweet <misc@n4te.com> */
+	static class RemoteObjectSerializer extends Serializer {
+		public void write (Kryo kryo, Output output, Object object) {
+			Connection connection = (Connection)kryo.getContext().get("connection");
+			int id = getRegisteredID(connection, object);
+			if (id == Integer.MAX_VALUE) throw new SerializationException("Object not found in an ObjectSpace: " + object);
+			output.writeInt(id, true);
+		}
+
+		public Object read (Kryo kryo, Input input, Class type) {
+			int objectID = input.readInt(true);
+			Connection connection = (Connection)kryo.getContext().get("connection");
+			return ObjectSpace.getRemoteObject(connection, objectID, type);
+		}
 	}
 }
