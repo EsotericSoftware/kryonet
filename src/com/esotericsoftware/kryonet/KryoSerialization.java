@@ -1,11 +1,9 @@
 
 package com.esotericsoftware.kryonet;
 
-import java.nio.ByteBuffer;
-
 import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.io.ByteBufferInputStream;
-import com.esotericsoftware.kryo.io.ByteBufferOutputStream;
+import com.esotericsoftware.kryo.io.ByteBufferInput;
+import com.esotericsoftware.kryo.io.ByteBufferOutput;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryonet.FrameworkMessage.DiscoverHost;
@@ -14,12 +12,12 @@ import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterTCP;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
 
+import java.nio.ByteBuffer;
+
 public class KryoSerialization implements Serialization {
 	private final Kryo kryo;
-	private final Input input;
-	private final Output output;
-	private final ByteBufferInputStream byteBufferInputStream = new ByteBufferInputStream();
-	private final ByteBufferOutputStream byteBufferOutputStream = new ByteBufferOutputStream();
+	private final ByteBufferInput input;
+	private final ByteBufferOutput output;
 
 	public KryoSerialization () {
 		this(new Kryo());
@@ -36,8 +34,8 @@ public class KryoSerialization implements Serialization {
 		kryo.register(DiscoverHost.class);
 		kryo.register(Ping.class);
 
-		input = new Input(byteBufferInputStream, 512);
-		output = new Output(byteBufferOutputStream, 512);
+		input = new ByteBufferInput();
+		output = new ByteBufferOutput();
 	}
 
 	public Kryo getKryo () {
@@ -45,15 +43,14 @@ public class KryoSerialization implements Serialization {
 	}
 
 	public synchronized void write (Connection connection, ByteBuffer buffer, Object object) {
-		byteBufferOutputStream.setByteBuffer(buffer);
+		output.setBuffer(buffer);
 		kryo.getContext().put("connection", connection);
 		kryo.writeClassAndObject(output, object);
 		output.flush();
 	}
 
 	public synchronized Object read (Connection connection, ByteBuffer buffer) {
-		byteBufferInputStream.setByteBuffer(buffer);
-		input.setInputStream(byteBufferInputStream);
+		input.setBuffer(buffer);
 		kryo.getContext().put("connection", connection);
 		return kryo.readClassAndObject(input);
 	}

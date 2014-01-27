@@ -1,35 +1,44 @@
 
 package com.esotericsoftware.kryonet;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+import com.esotericsoftware.minlog.Log;
+
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class UnregisteredClassTest extends KryoNetTestCase {
-	public void testPingPong () throws IOException {
+	public void testUnregisteredClasses () throws IOException {
 		final Data dataTCP = new Data();
 		populateData(dataTCP, true);
 		final Data dataUDP = new Data();
 		populateData(dataUDP, false);
 
-		final Server server = new Server(16384, 8192);
+		final AtomicInteger receivedTCP = new AtomicInteger();
+		final AtomicInteger receivedUDP = new AtomicInteger();
+
+		final Server server = new Server(1024 * 32, 1024 * 16);
 		server.getKryo().setRegistrationRequired(false);
 		startEndPoint(server);
 		server.bind(tcpPort, udpPort);
 		server.addListener(new Listener() {
 			public void connected (Connection connection) {
 				connection.sendTCP(dataTCP);
-				connection.sendUDP(dataUDP); // Note UDP ping pong stops if a UDP packet is lost.
+				connection.sendUDP(dataUDP);
 			}
 
 			public void received (Connection connection, Object object) {
 				if (object instanceof Data) {
 					Data data = (Data)object;
 					if (data.isTCP) {
-						if (!data.equals(dataTCP)) throw new RuntimeException("Fail!");
-						connection.sendTCP(data);
+						if (!data.equals(dataTCP)) fail();
+						receivedTCP.incrementAndGet();
 					} else {
-						if (!data.equals(dataUDP)) throw new RuntimeException("Fail!");
-						connection.sendUDP(data);
+						if (!data.equals(dataUDP)) fail();
+						receivedUDP.incrementAndGet();
 					}
 				}
 			}
@@ -37,7 +46,7 @@ public class UnregisteredClassTest extends KryoNetTestCase {
 
 		// ----
 
-		final Client client = new Client(16384, 8192);
+		final Client client = new Client(1024 * 32, 1024 * 16);
 		client.getKryo().setRegistrationRequired(false);
 		startEndPoint(client);
 		client.addListener(new Listener() {
@@ -45,10 +54,12 @@ public class UnregisteredClassTest extends KryoNetTestCase {
 				if (object instanceof Data) {
 					Data data = (Data)object;
 					if (data.isTCP) {
-						if (!data.equals(dataTCP)) throw new RuntimeException("Fail!");
+						if (!data.equals(dataTCP)) fail();
+						receivedTCP.incrementAndGet();
 						connection.sendTCP(data);
 					} else {
-						if (!data.equals(dataUDP)) throw new RuntimeException("Fail!");
+						if (!data.equals(dataUDP)) fail();
+						receivedUDP.incrementAndGet();
 						connection.sendUDP(data);
 					}
 				}
@@ -58,6 +69,9 @@ public class UnregisteredClassTest extends KryoNetTestCase {
 		client.connect(5000, host, tcpPort, udpPort);
 
 		waitForThreads(5000);
+
+		assertEquals(2, receivedTCP.intValue());
+		assertEquals(2, receivedUDP.intValue());
 	}
 
 	private void populateData (Data data, boolean isTCP) {
