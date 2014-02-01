@@ -6,16 +6,15 @@ import static com.esotericsoftware.minlog.Log.*;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoException;
 import com.esotericsoftware.kryo.KryoSerializable;
-import com.esotericsoftware.kryo.Registration;
 import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.serializers.FieldSerializer;
-import com.esotericsoftware.kryo.util.DefaultClassResolver;
 import com.esotericsoftware.kryo.util.IntMap;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.EndPoint;
 import com.esotericsoftware.kryonet.FrameworkMessage;
+import com.esotericsoftware.kryonet.KryoNetException;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.util.ObjectIntMap;
 
@@ -35,8 +34,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-
-import com.sun.xml.internal.ws.encoding.soap.SerializationException;
 
 /** Allows methods on objects to be invoked remotely over TCP. Objects are {@link #register(int, Object) registered} with an ID.
  * The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
@@ -220,10 +217,10 @@ public class ObjectSpace {
 			if (transmitExceptions)
 				result = ex.getCause();
 			else
-				throw new RuntimeException("Error invoking method: " + method.getDeclaringClass().getName() + "." + method.getName(),
+				throw new KryoNetException("Error invoking method: " + method.getDeclaringClass().getName() + "." + method.getName(),
 					ex);
 		} catch (Exception ex) {
-			throw new RuntimeException("Error invoking method: " + method.getDeclaringClass().getName() + "." + method.getName(), ex);
+			throw new KryoNetException("Error invoking method: " + method.getDeclaringClass().getName() + "." + method.getName(), ex);
 		}
 
 		if (responseID == 0) return;
@@ -350,14 +347,14 @@ public class ObjectSpace {
 					return connection;
 				} else {
 					// Should never happen, for debugging purposes only
-					throw new RuntimeException("Invocation handler could not find RemoteObject method. Check ObjectSpace.java");
+					throw new KryoNetException("Invocation handler could not find RemoteObject method. Check ObjectSpace.java");
 				}
 			} else if (method.getDeclaringClass() == Object.class) {
 				if (method.getName().equals("toString")) return "<proxy>";
 				try {
 					return method.invoke(proxy, args);
 				} catch (Exception ex) {
-					throw new RuntimeException(ex);
+					throw new KryoNetException(ex);
 				}
 			}
 
@@ -441,7 +438,7 @@ public class ObjectSpace {
 						responseCondition.await(remaining, TimeUnit.MILLISECONDS);
 					} catch (InterruptedException e) {
 						Thread.currentThread().interrupt();
-						throw new RuntimeException(e);
+						throw new KryoNetException(e);
 					} finally {
 						lock.unlock();
 					}
@@ -659,11 +656,11 @@ public class ObjectSpace {
 	/** Serializes an object registered with an ObjectSpace so the receiving side gets a {@link RemoteObject} proxy rather than the
 	 * bytes for the serialized object.
 	 * @author Nathan Sweet <misc@n4te.com> */
-	static class RemoteObjectSerializer extends Serializer {
+	static public class RemoteObjectSerializer extends Serializer {
 		public void write (Kryo kryo, Output output, Object object) {
 			Connection connection = (Connection)kryo.getContext().get("connection");
 			int id = getRegisteredID(connection, object);
-			if (id == Integer.MAX_VALUE) throw new SerializationException("Object not found in an ObjectSpace: " + object);
+			if (id == Integer.MAX_VALUE) throw new KryoNetException("Object not found in an ObjectSpace: " + object);
 			output.writeInt(id, true);
 		}
 
