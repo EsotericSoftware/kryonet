@@ -276,9 +276,10 @@ public class ObjectSpace {
 		private final Connection connection;
 		final int objectID;
 		private int timeoutMillis = 3000;
-		private boolean nonBlocking = false;
+		private boolean nonBlocking;
 		private boolean transmitReturnValue = true;
 		private boolean transmitExceptions = true;
+		private boolean remoteToString;
 		private Byte lastResponseID;
 		private byte nextResponseNum = 1;
 		private Listener responseListener;
@@ -316,7 +317,8 @@ public class ObjectSpace {
 		}
 
 		public Object invoke (Object proxy, Method method, Object[] args) throws Exception {
-			if (method.getDeclaringClass() == RemoteObject.class) {
+			Class declaringClass = method.getDeclaringClass();
+			if (declaringClass == RemoteObject.class) {
 				String name = method.getName();
 				if (name.equals("close")) {
 					close();
@@ -333,6 +335,9 @@ public class ObjectSpace {
 				} else if (name.equals("setTransmitExceptions")) {
 					transmitExceptions = (Boolean)args[0];
 					return null;
+				} else if (name.equals("setRemoteToString")) {
+					remoteToString = (Boolean)args[0];
+					return null;
 				} else if (name.equals("waitForLastResponse")) {
 					if (lastResponseID == null) throw new IllegalStateException("There is no last response to wait for.");
 					return waitForResponse(lastResponseID);
@@ -345,18 +350,11 @@ public class ObjectSpace {
 					return waitForResponse((Byte)args[0]);
 				} else if (name.equals("getConnection")) {
 					return connection;
-				} else {
-					// Should never happen, for debugging purposes only
-					throw new KryoNetException("Invocation handler could not find RemoteObject method. Check ObjectSpace.java");
 				}
-			} else if (method.getDeclaringClass() == Object.class) {
-				if (method.getName().equals("toString")) return "<proxy>";
-				try {
-					return method.invoke(proxy, args);
-				} catch (Exception ex) {
-					throw new KryoNetException(ex);
-				}
-			}
+				// Should never happen, for debugging purposes only
+				throw new KryoNetException("Invocation handler could not find RemoteObject method. Check ObjectSpace.java");
+			} else if (!remoteToString && declaringClass == Object.class && method.getName().equals("toString")) //
+				return "<proxy>";
 
 			InvokeMethod invokeMethod = new InvokeMethod();
 			invokeMethod.objectID = objectID;
@@ -528,9 +526,10 @@ public class ObjectSpace {
 
 		ArrayList<Method> allMethods = new ArrayList();
 		Class nextClass = type;
-		while (nextClass != null && nextClass != Object.class) {
+		while (nextClass != null) {
 			Collections.addAll(allMethods, nextClass.getDeclaredMethods());
 			nextClass = nextClass.getSuperclass();
+			if (nextClass == Object.class) break;
 		}
 		PriorityQueue<Method> methods = new PriorityQueue(Math.max(1, allMethods.size()), new Comparator<Method>() {
 			public int compare (Method o1, Method o2) {

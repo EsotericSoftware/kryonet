@@ -35,6 +35,10 @@ public interface RemoteObject {
 	 *           be retrieved with {@link #waitForLastResponse()} or {@link #waitForResponse(byte)}, similar to a return value. */
 	public void setTransmitExceptions (boolean transmit);
 
+	/** If false, calls to {@link Object#toString()} will return "<proxy>" instead of being invoking the remote method. Default is
+	 * false. */
+	public void setRemoteToString (boolean remoteToString);
+
 	/** Waits for the response to the last method invocation to be received or the response timeout to be reached. Must not be
 	 * called from the connection's update thread.
 	 * @see ObjectSpace#getRemoteObject(com.esotericsoftware.kryonet.Connection, int, Class...) */

@@ -78,6 +78,8 @@ public class RmiTest extends KryoNetTestCase {
 				RemoteObject remoteObject = (RemoteObject)test;
 				// Default behavior. RMI is transparent, method calls behave like normal
 				// (return values and exceptions are returned, call is synchronous)
+				System.out.println("hashCode: " + test.hashCode());
+				System.out.println("toString: " + test);
 				test.moo();
 				test.moo("Cow");
 				assertEquals(other, test.other());
@@ -148,6 +150,7 @@ public class RmiTest extends KryoNetTestCase {
 
 	/** Registers the same classes in the same order on both the client and server. */
 	static public void register (Kryo kryo) {
+		kryo.register(Object.class); // Needed for Object#toString, hashCode, etc.
 		kryo.register(TestObject.class);
 		kryo.register(MessageWithTestObject.class);
 		kryo.register(StackTraceElement.class);
