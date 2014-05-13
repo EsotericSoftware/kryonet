@@ -4,7 +4,7 @@ KryoNet can be downloaded on the [releases](https://github.com/EsotericSoftware/
 
 ## Overview
 
-KryoNet is a Java library that provides a clean and simple API for efficient TCP and UDP client/server network communication using NIO. KryoNet uses the [Kryo serialization library](http://code.google.com/p/kryo/) to automatically and efficiently transfer object graphs across the network.
+KryoNet is a Java library that provides a clean and simple API for efficient TCP and UDP client/server network communication using NIO. KryoNet uses the [Kryo serialization library](https://github.com/EsotericSoftware/kryo) to automatically and efficiently transfer object graphs across the network.
 
 KryoNet runs on both the desktop and on [Android](http://www.android.com/).
 
