@@ -71,6 +71,55 @@ public class RmiTest extends KryoNetTestCase {
 		waitForThreads();
 	}
 
+	public void testMany () throws IOException {
+		Server server = new Server();
+		Kryo serverKryo = server.getKryo();
+		register(serverKryo);
+
+		startEndPoint(server);
+		server.bind(tcpPort);
+
+		final TestObjectImpl serverTestObject = new TestObjectImpl(4321);
+
+		final ObjectSpace serverObjectSpace = new ObjectSpace();
+		serverObjectSpace.register(42, serverTestObject);
+
+		server.addListener(new Listener() {
+			public void connected (final Connection connection) {
+				serverObjectSpace.addConnection(connection);
+			}
+
+			public void received (Connection connection, Object object) {
+				if (object instanceof MessageWithTestObject) {
+					assertEquals(256, serverTestObject.moos);
+					stopEndPoints(2000);
+				}
+			}
+		});
+
+		// ----
+
+		Client client = new Client();
+		register(client.getKryo());
+
+		startEndPoint(client);
+		client.addListener(new Listener() {
+			public void connected (final Connection connection) {
+				new Thread() {
+					public void run () {
+						TestObject test = ObjectSpace.getRemoteObject(connection, 42, TestObject.class);
+						for (int i = 0; i < 256; i++)
+							test.moo("" + i);
+						connection.sendTCP(new MessageWithTestObject());
+					}
+				}.start();
+			}
+		});
+		client.connect(5000, host, tcpPort);
+
+		waitForThreads();
+	}
+
 	static public void runTest (final Connection connection, final int id, final float other) {
 		new Thread() {
 			public void run () {
@@ -175,6 +224,7 @@ public class RmiTest extends KryoNetTestCase {
 	static public class TestObjectImpl implements TestObject {
 		public long value = System.currentTimeMillis();
 		private final float other;
+		public int moos;
 
 		public TestObjectImpl (int other) {
 			this.other = other;
@@ -185,14 +235,17 @@ public class RmiTest extends KryoNetTestCase {
 		}
 
 		public void moo () {
+			moos++;
 			System.out.println("Moo!");
 		}
 
 		public void moo (String value) {
+			moos++;
 			System.out.println("Moo: " + value);
 		}
 
 		public void moo (String value, long delay) {
+			moos++;
 			System.out.println("Moo: " + value);
 			try {
 				Thread.sleep(delay);

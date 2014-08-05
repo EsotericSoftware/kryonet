@@ -288,7 +288,7 @@ public class ObjectSpace {
 
 		final ReentrantLock lock = new ReentrantLock();
 		final Condition responseCondition = lock.newCondition();
-		final ConcurrentHashMap<Byte, InvokeMethodResult> responseTable = new ConcurrentHashMap();
+		final InvokeMethodResult[] responseTable = new InvokeMethodResult[64];
 
 		public RemoteInvocationHandler (Connection connection, final int objectID) {
 			super();
@@ -301,7 +301,9 @@ public class ObjectSpace {
 					InvokeMethodResult invokeMethodResult = (InvokeMethodResult)object;
 					if (invokeMethodResult.objectID != objectID) return;
 
-					responseTable.put(invokeMethodResult.responseID, invokeMethodResult);
+					synchronized (responseTable) {
+						responseTable[invokeMethodResult.responseID] = invokeMethodResult;
+					}
 
 					lock.lock();
 					try {
@@ -416,7 +418,7 @@ public class ObjectSpace {
 			}
 		}
 
-		private Object waitForResponse (Byte responseID) {
+		private Object waitForResponse (byte responseID) {
 			if (connection.getEndPoint().getUpdateThread() == Thread.currentThread())
 				throw new IllegalStateException("Cannot wait for an RMI response on the connection's update thread.");
 
@@ -424,7 +426,10 @@ public class ObjectSpace {
 
 			while (true) {
 				long remaining = endTime - System.currentTimeMillis();
-				InvokeMethodResult invokeMethodResult = responseTable.remove(responseID);
+				InvokeMethodResult invokeMethodResult;
+				synchronized (responseTable) {
+					invokeMethodResult = responseTable[responseID];
+				}
 				if (invokeMethodResult != null) {
 					lastResponseID = null;
 					return invokeMethodResult.result;
