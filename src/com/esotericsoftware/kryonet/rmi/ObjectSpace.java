@@ -28,7 +28,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.PriorityQueue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -287,6 +289,7 @@ public class ObjectSpace {
 		final ReentrantLock lock = new ReentrantLock();
 		final Condition responseCondition = lock.newCondition();
 		final ConcurrentHashMap<Byte, InvokeMethodResult> responseTable = new ConcurrentHashMap();
+		final Set<Byte> pendingResponses = new HashSet<Byte>();
 
 		public RemoteInvocationHandler (Connection connection, final int objectID) {
 			super();
@@ -298,8 +301,12 @@ public class ObjectSpace {
 					if (!(object instanceof InvokeMethodResult)) return;
 					InvokeMethodResult invokeMethodResult = (InvokeMethodResult)object;
 					if (invokeMethodResult.objectID != objectID) return;
-
-					responseTable.put(invokeMethodResult.responseID, invokeMethodResult);
+					
+					synchronized (this) {
+						if (pendingResponses.contains(invokeMethodResult.responseID)) {
+							responseTable.put(invokeMethodResult.responseID, invokeMethodResult);
+						}
+					}
 
 					lock.lock();
 					try {
@@ -369,6 +376,7 @@ public class ObjectSpace {
 				synchronized (this) {
 					// Increment the response counter and put it into the first six bits of the responseID byte
 					responseID = nextResponseNum++;
+					pendingResponses.add(responseID);
 					if (nextResponseNum == 64) nextResponseNum = 1; // Keep number under 2^6, avoid 0 (see else statement below)
 				}
 				// Pack return value and exception info into the top two bits
@@ -412,6 +420,11 @@ public class ObjectSpace {
 					return result;
 			} catch (TimeoutException ex) {
 				throw new TimeoutException("Response timed out: " + method.getDeclaringClass().getName() + "." + method.getName());
+			} finally {
+				synchronized (this) {
+					pendingResponses.remove(invokeMethod.responseID);
+					responseTable.remove(invokeMethod.responseID);
+				}
 			}
 		}
 
