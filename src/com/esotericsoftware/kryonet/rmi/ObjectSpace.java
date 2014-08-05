@@ -289,6 +289,7 @@ public class ObjectSpace {
 		final ReentrantLock lock = new ReentrantLock();
 		final Condition responseCondition = lock.newCondition();
 		final InvokeMethodResult[] responseTable = new InvokeMethodResult[64];
+		final boolean[] pendingResponses = new boolean[64];
 
 		public RemoteInvocationHandler (Connection connection, final int objectID) {
 			super();
@@ -301,8 +302,9 @@ public class ObjectSpace {
 					InvokeMethodResult invokeMethodResult = (InvokeMethodResult)object;
 					if (invokeMethodResult.objectID != objectID) return;
 
-					synchronized (responseTable) {
-						responseTable[invokeMethodResult.responseID] = invokeMethodResult;
+					int responseID = invokeMethodResult.responseID;
+					synchronized (this) {
+						if (pendingResponses[responseID]) responseTable[responseID] = invokeMethodResult;
 					}
 
 					lock.lock();
@@ -367,14 +369,16 @@ public class ObjectSpace {
 
 			// A invocation doesn't need a response if it's async and no return values or exceptions are wanted back.
 			boolean needsResponse = transmitReturnValue || transmitExceptions || !nonBlocking;
+			byte responseID = 0;
 			if (needsResponse) {
-				byte responseData;
 				synchronized (this) {
 					// Increment the response counter and put it into the low bits of the responseID.
-					responseData = nextResponseId++;
+					responseID = nextResponseId++;
 					if (nextResponseId > responseIdMask) nextResponseId = 1;
+					pendingResponses[responseID] = true;
 				}
 				// Pack other data into the high bits.
+				byte responseData = responseID;
 				if (transmitReturnValue) responseData |= returnValMask;
 				if (transmitExceptions) responseData |= returnExMask;
 				invokeMethod.responseData = responseData;
@@ -415,6 +419,11 @@ public class ObjectSpace {
 					return result;
 			} catch (TimeoutException ex) {
 				throw new TimeoutException("Response timed out: " + method.getDeclaringClass().getName() + "." + method.getName());
+			} finally {
+				synchronized (this) {
+					pendingResponses[responseID] = false;
+					responseTable[responseID] = null;
+				}
 			}
 		}
 
@@ -427,7 +436,7 @@ public class ObjectSpace {
 			while (true) {
 				long remaining = endTime - System.currentTimeMillis();
 				InvokeMethodResult invokeMethodResult;
-				synchronized (responseTable) {
+				synchronized (this) {
 					invokeMethodResult = responseTable[responseID];
 				}
 				if (invokeMethodResult != null) {

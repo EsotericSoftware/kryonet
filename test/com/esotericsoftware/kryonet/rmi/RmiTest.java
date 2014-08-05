@@ -13,7 +13,7 @@ import java.io.IOException;
 public class RmiTest extends KryoNetTestCase {
 	/** In this test both the client and server have an ObjectSpace that contains a TestObject. When the client connects, the same
 	 * test is run on both the client and server. The test excersizes a number of remote method calls and other features. */
-	public void testRMI () throws IOException {
+	public void XtestRMI () throws IOException {
 		Server server = new Server();
 		Kryo serverKryo = server.getKryo();
 		register(serverKryo);
@@ -108,6 +108,21 @@ public class RmiTest extends KryoNetTestCase {
 				new Thread() {
 					public void run () {
 						TestObject test = ObjectSpace.getRemoteObject(connection, 42, TestObject.class);
+						test.other();
+						// Timeout on purpose.
+						try {
+							((RemoteObject)test).setResponseTimeout(200);
+							test.slow();
+							fail();
+						} catch (TimeoutException ignored) {
+						}
+						try {
+							Thread.sleep(300);
+						} catch (InterruptedException ex) {
+						}
+						((RemoteObject)test).setResponseTimeout(3000);
+						for (int i = 0; i < 256; i++)
+							assertEquals(4321f, (float)test.other());
 						for (int i = 0; i < 256; i++)
 							test.moo("" + i);
 						connection.sendTCP(new MessageWithTestObject());
@@ -219,6 +234,8 @@ public class RmiTest extends KryoNetTestCase {
 		public void moo (String value, long delay);
 
 		public float other ();
+
+		public float slow ();
 	}
 
 	static public class TestObjectImpl implements TestObject {
@@ -256,6 +273,14 @@ public class RmiTest extends KryoNetTestCase {
 
 		public float other () {
 			return other;
+		}
+
+		public float slow () {
+			try {
+				Thread.sleep(300);
+			} catch (InterruptedException ex) {
+			}
+			return 666;
 		}
 	}
 
