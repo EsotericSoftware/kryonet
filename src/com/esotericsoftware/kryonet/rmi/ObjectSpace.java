@@ -39,13 +39,14 @@ import java.util.concurrent.locks.ReentrantLock;
  * The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
  * {@link #getRemoteObject(Connection, int, Class) access} registered objects.
  * <p>
- * It costs at least 2 bytes more to use remote method invocation than just sending the parameters. If the method has a return
+ * It costs at least 3 bytes more to use remote method invocation than just sending the parameters. If the method has a return
  * value which is not {@link RemoteObject#setNonBlocking(boolean) ignored}, an extra byte is written. If the type of a parameter is
  * not final (note primitives are final) then an extra byte is written for that parameter.
  * @author Nathan Sweet <misc@n4te.com> */
 public class ObjectSpace {
-	static private final byte kReturnValMask = (byte)0x80; // 1000 0000
-	static private final byte kReturnExMask = (byte)0x40; // 0100 0000
+	static private final int returnValMask = 1 << 15;
+	static private final int returnExMask = 1 << 14;
+	static private final int responseIdMask = 0xffff & ~returnValMask & ~returnExMask;
 
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
@@ -204,9 +205,10 @@ public class ObjectSpace {
 				+ "(" + argString + ")");
 		}
 
-		byte responseID = invokeMethod.responseID;
-		boolean transmitReturnVal = (responseID & kReturnValMask) == kReturnValMask;
-		boolean transmitExceptions = (responseID & kReturnExMask) == kReturnExMask;
+		short responseData = invokeMethod.responseData;
+		boolean transmitReturnVal = (responseData & returnValMask) == returnValMask;
+		boolean transmitExceptions = (responseData & returnExMask) == returnExMask;
+		int responseID = responseData & responseIdMask;
 
 		Object result = null;
 		Method method = invokeMethod.method;
@@ -227,7 +229,7 @@ public class ObjectSpace {
 
 		InvokeMethodResult invokeMethodResult = new InvokeMethodResult();
 		invokeMethodResult.objectID = invokeMethod.objectID;
-		invokeMethodResult.responseID = responseID;
+		invokeMethodResult.responseID = (short)responseID;
 
 		// Do not return non-primitives if transmitReturnVal is false
 		if (!transmitReturnVal && !invokeMethod.method.getReturnType().isPrimitive()) {
@@ -280,13 +282,13 @@ public class ObjectSpace {
 		private boolean transmitReturnValue = true;
 		private boolean transmitExceptions = true;
 		private boolean remoteToString;
-		private Byte lastResponseID;
-		private byte nextResponseNum = 1;
+		private Short lastResponseID;
+		private short nextResponseId = 1;
 		private Listener responseListener;
 
 		final ReentrantLock lock = new ReentrantLock();
 		final Condition responseCondition = lock.newCondition();
-		final ConcurrentHashMap<Byte, InvokeMethodResult> responseTable = new ConcurrentHashMap();
+		final ConcurrentHashMap<Short, InvokeMethodResult> responseTable = new ConcurrentHashMap();
 
 		public RemoteInvocationHandler (Connection connection, final int objectID) {
 			super();
@@ -347,7 +349,7 @@ public class ObjectSpace {
 				} else if (name.equals("waitForResponse")) {
 					if (!transmitReturnValue && !transmitExceptions && nonBlocking)
 						throw new IllegalStateException("This RemoteObject is currently set to ignore all responses.");
-					return waitForResponse((Byte)args[0]);
+					return waitForResponse((Short)args[0]);
 				} else if (name.equals("getConnection")) {
 					return connection;
 				}
@@ -361,22 +363,21 @@ public class ObjectSpace {
 			invokeMethod.method = method;
 			invokeMethod.args = args;
 
-			// The only time a invocation doesn't need a response is if it's async
-			// and no return values or exceptions are wanted back.
+			// A invocation doesn't need a response if it's async and no return values or exceptions are wanted back.
 			boolean needsResponse = transmitReturnValue || transmitExceptions || !nonBlocking;
 			if (needsResponse) {
-				byte responseID;
+				short responseData;
 				synchronized (this) {
-					// Increment the response counter and put it into the first six bits of the responseID byte
-					responseID = nextResponseNum++;
-					if (nextResponseNum == 64) nextResponseNum = 1; // Keep number under 2^6, avoid 0 (see else statement below)
+					// Increment the response counter and put it into the low bits of the responseID.
+					responseData = nextResponseId++;
+					if (nextResponseId > responseIdMask) nextResponseId = 1;
 				}
-				// Pack return value and exception info into the top two bits
-				if (transmitReturnValue) responseID |= kReturnValMask;
-				if (transmitExceptions) responseID |= kReturnExMask;
-				invokeMethod.responseID = responseID;
+				// Pack other data into the high bits.
+				if (transmitReturnValue) responseData |= returnValMask;
+				if (transmitExceptions) responseData |= returnExMask;
+				invokeMethod.responseData = responseData;
 			} else {
-				invokeMethod.responseID = 0; // A response info of 0 means to not respond
+				invokeMethod.responseData = 0; // A response data of 0 means to not respond.
 			}
 			int length = connection.sendTCP(invokeMethod);
 			if (DEBUG) {
@@ -389,7 +390,7 @@ public class ObjectSpace {
 					+ argString + ") (" + length + ")");
 			}
 
-			if (invokeMethod.responseID != 0) lastResponseID = invokeMethod.responseID;
+			lastResponseID = (short)(invokeMethod.responseData & responseIdMask);
 			if (nonBlocking) {
 				Class returnType = method.getReturnType();
 				if (returnType.isPrimitive()) {
@@ -405,7 +406,7 @@ public class ObjectSpace {
 				return null;
 			}
 			try {
-				Object result = waitForResponse(invokeMethod.responseID);
+				Object result = waitForResponse(lastResponseID);
 				if (result != null && result instanceof Exception)
 					throw (Exception)result;
 				else
@@ -415,7 +416,7 @@ public class ObjectSpace {
 			}
 		}
 
-		private Object waitForResponse (byte responseID) {
+		private Object waitForResponse (Short responseID) {
 			if (connection.getEndPoint().getUpdateThread() == Thread.currentThread())
 				throw new IllegalStateException("Cannot wait for an RMI response on the connection's update thread.");
 
@@ -423,9 +424,8 @@ public class ObjectSpace {
 
 			while (true) {
 				long remaining = endTime - System.currentTimeMillis();
-				if (responseTable.containsKey(responseID)) {
-					InvokeMethodResult invokeMethodResult = responseTable.get(responseID);
-					responseTable.remove(responseID);
+				InvokeMethodResult invokeMethodResult = responseTable.remove(responseID);
+				if (invokeMethodResult != null) {
 					lastResponseID = null;
 					return invokeMethodResult.result;
 				} else {
@@ -454,10 +454,10 @@ public class ObjectSpace {
 		public int objectID;
 		public Method method;
 		public Object[] args;
-		// The top two bytes of the ID indicate if the remote invocation should respond with return values and exceptions,
-		// respectively. The rest is a six bit counter. This means up to 63 responses can be stored before undefined behavior
-		// occurs due to possible duplicate IDs.
-		public byte responseID;
+		// The top two bits of the ID indicate if the remote invocation should respond with return values and exceptions,
+		// respectively. The rest is a 14 bit counter. This means up to 16383 responses can be stored before undefined behavior
+		// occurs due to possible duplicate IDs. A response data of 0 means to not respond.
+		public short responseData;
 
 		public void write (Kryo kryo, Output output) {
 			output.writeInt(objectID, true);
@@ -483,7 +483,7 @@ public class ObjectSpace {
 					kryo.writeClassAndObject(output, args[i]);
 			}
 
-			output.writeByte(responseID);
+			output.writeShort(responseData);
 		}
 
 		public void read (Kryo kryo, Input input) {
@@ -509,14 +509,14 @@ public class ObjectSpace {
 					args[i] = kryo.readClassAndObject(input);
 			}
 
-			responseID = input.readByte();
+			responseData = input.readShort();
 		}
 	}
 
 	/** Internal message to return the result of a remotely invoked method. */
 	static public class InvokeMethodResult implements FrameworkMessage {
 		public int objectID;
-		public byte responseID;
+		public short responseID;
 		public Object result;
 	}
 
