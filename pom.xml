@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>org.sonatype.oss</groupId>
+        <artifactId>oss-parent</artifactId>
+        <version>7</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.esotericsoftware</groupId>
+    <artifactId>kryonet</artifactId>
+    <version>2.22.0-RC1</version>
+    <packaging>jar</packaging>
+
+    <name>kryonet</name>
+    <description>TCP and UDP client/server library for Java</description>
+    <url>https://github.com/EsotericSoftware/kryonet</url>
+
+    <licenses>
+        <license>
+            <name>New BSD License</name>
+            <url>http://www.opensource.org/licenses/bsd-license.php</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>nathan.sweet</id>
+            <name>Nathan Sweet</name>
+            <email>nathan.sweet@gmail.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/EsotericSoftware/kryonet</url>
+        <connection>scm:git:https://github.com/EsotericSoftware/kryonet.git</connection>
+        <developerConnection>scm:git:https://github.com/EsotericSoftware/kryonet.git</developerConnection>
+        <tag>HEAD</tag>
+    </scm>
+
+    <build>
+        <!-- Set nonstandard source and test source dirs -->
+        <sourceDirectory>src</sourceDirectory>
+        <testSourceDirectory>test</testSourceDirectory>
+
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.esotericsoftware.kryo</groupId>
+            <artifactId>kryo</artifactId>
+            <version>2.24.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.esotericsoftware</groupId>
+            <artifactId>jsonbeans</artifactId>
+            <version>0.7</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.11</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>
