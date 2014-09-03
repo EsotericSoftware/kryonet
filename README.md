@@ -186,9 +186,10 @@ JsonSerialization is provided which uses [JsonBeans](http://code.google.com/p/js
 
 KryoNet has an easy to use mechanism for invoking methods on remote objects (RMI). This has a small amount of overhead versus explicitly sending objects. RMI can hide that methods are being marshaled and executed remotely, but in practice the code using such methods will need to be aware of the network communication to handle errors and methods that block. KryoNet's RMI is not related to the java.rmi package.
 
-RMI is done by first creating an ObjectSpace and registering objects with an ID:
+RMI is done by first calling `registerClasses`, creating an ObjectSpace and registering objects with an ID:
 
 ```java
+    ObjectSpace.registerClasses(endPoint.getKryo());
     ObjectSpace objectSpace = new ObjectSpace();
     objectSpace.register(42, someObject);
     // ...
