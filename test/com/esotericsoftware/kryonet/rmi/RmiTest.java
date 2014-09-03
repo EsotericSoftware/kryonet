@@ -91,7 +91,7 @@ public class RmiTest extends KryoNetTestCase {
 
 			public void received (Connection connection, Object object) {
 				if (object instanceof MessageWithTestObject) {
-					assertEquals(256, serverTestObject.moos);
+					assertEquals(256 + 512 + 1024, serverTestObject.moos);
 					stopEndPoints(2000);
 				}
 			}
@@ -124,7 +124,11 @@ public class RmiTest extends KryoNetTestCase {
 						for (int i = 0; i < 256; i++)
 							assertEquals(4321f, (float)test.other());
 						for (int i = 0; i < 256; i++)
+							test.moo();
+						for (int i = 0; i < 256; i++)
 							test.moo("" + i);
+						for (int i = 0; i < 256; i++)
+							test.moo("" + i, 0);
 						connection.sendTCP(new MessageWithTestObject());
 					}
 				}.start();
@@ -257,12 +261,12 @@ public class RmiTest extends KryoNetTestCase {
 		}
 
 		public void moo (String value) {
-			moos++;
+			moos += 2;
 			System.out.println("Moo: " + value);
 		}
 
 		public void moo (String value, long delay) {
-			moos++;
+			moos += 4;
 			System.out.println("Moo: " + value);
 			try {
 				Thread.sleep(delay);

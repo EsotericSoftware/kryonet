@@ -3,21 +3,6 @@ package com.esotericsoftware.kryonet.rmi;
 
 import static com.esotericsoftware.minlog.Log.*;
 
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.KryoException;
-import com.esotericsoftware.kryo.KryoSerializable;
-import com.esotericsoftware.kryo.Serializer;
-import com.esotericsoftware.kryo.io.Input;
-import com.esotericsoftware.kryo.io.Output;
-import com.esotericsoftware.kryo.serializers.FieldSerializer;
-import com.esotericsoftware.kryo.util.IntMap;
-import com.esotericsoftware.kryonet.Connection;
-import com.esotericsoftware.kryonet.EndPoint;
-import com.esotericsoftware.kryonet.FrameworkMessage;
-import com.esotericsoftware.kryonet.KryoNetException;
-import com.esotericsoftware.kryonet.Listener;
-import com.esotericsoftware.kryonet.util.ObjectIntMap;
-
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -28,12 +13,27 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.PriorityQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.KryoException;
+import com.esotericsoftware.kryo.KryoSerializable;
+import com.esotericsoftware.kryo.Serializer;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
+import com.esotericsoftware.kryo.util.IntMap;
+import com.esotericsoftware.kryo.util.Util;
+import com.esotericsoftware.kryonet.Connection;
+import com.esotericsoftware.kryonet.EndPoint;
+import com.esotericsoftware.kryonet.FrameworkMessage;
+import com.esotericsoftware.kryonet.KryoNetException;
+import com.esotericsoftware.kryonet.Listener;
+import com.esotericsoftware.kryonet.util.ObjectIntMap;
+import com.esotericsoftware.reflectasm.MethodAccess;
 
 /** Allows methods on objects to be invoked remotely over TCP. Objects are {@link #register(int, Object) registered} with an ID.
  * The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
@@ -51,6 +51,7 @@ public class ObjectSpace {
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
 	static private final HashMap<Class, CachedMethod[]> methodCache = new HashMap();
+	static private boolean asm = true;
 
 	final IntMap idToObject = new IntMap();
 	final ObjectIntMap objectToID = new ObjectIntMap();
@@ -201,8 +202,9 @@ public class ObjectSpace {
 				argString = Arrays.deepToString(invokeMethod.args);
 				argString = argString.substring(1, argString.length() - 1);
 			}
-			debug("kryonet", connection + " received: " + target.getClass().getSimpleName() + "#" + invokeMethod.method.getName()
-				+ "(" + argString + ")");
+			debug("kryonet",
+				connection + " received: " + target.getClass().getSimpleName() + "#" + invokeMethod.cachedMethod.method.getName()
+					+ "(" + argString + ")");
 		}
 
 		byte responseData = invokeMethod.responseData;
@@ -210,19 +212,19 @@ public class ObjectSpace {
 		boolean transmitExceptions = (responseData & returnExMask) == returnExMask;
 		int responseID = responseData & responseIdMask;
 
+		CachedMethod cachedMethod = invokeMethod.cachedMethod;
 		Object result = null;
-		Method method = invokeMethod.method;
 		try {
-			result = method.invoke(target, invokeMethod.args);
-			// Catch exceptions caused by the Method#invoke
+			result = cachedMethod.invoke(target, invokeMethod.args);
 		} catch (InvocationTargetException ex) {
 			if (transmitExceptions)
 				result = ex.getCause();
 			else
-				throw new KryoNetException("Error invoking method: " + method.getDeclaringClass().getName() + "." + method.getName(),
-					ex);
+				throw new KryoNetException("Error invoking method: " + cachedMethod.method.getDeclaringClass().getName() + "."
+					+ cachedMethod.method.getName(), ex);
 		} catch (Exception ex) {
-			throw new KryoNetException("Error invoking method: " + method.getDeclaringClass().getName() + "." + method.getName(), ex);
+			throw new KryoNetException("Error invoking method: " + cachedMethod.method.getDeclaringClass().getName() + "."
+				+ cachedMethod.method.getName(), ex);
 		}
 
 		if (responseID == 0) return;
@@ -232,7 +234,7 @@ public class ObjectSpace {
 		invokeMethodResult.responseID = (byte)responseID;
 
 		// Do not return non-primitives if transmitReturnVal is false
-		if (!transmitReturnVal && !invokeMethod.method.getReturnType().isPrimitive()) {
+		if (!transmitReturnVal && !invokeMethod.cachedMethod.method.getReturnType().isPrimitive()) {
 			invokeMethodResult.result = null;
 		} else {
 			invokeMethodResult.result = result;
@@ -364,8 +366,17 @@ public class ObjectSpace {
 
 			InvokeMethod invokeMethod = new InvokeMethod();
 			invokeMethod.objectID = objectID;
-			invokeMethod.method = method;
 			invokeMethod.args = args;
+
+			CachedMethod[] cachedMethods = getMethods(connection.getEndPoint().getKryo(), method.getDeclaringClass());
+			for (int i = 0, n = cachedMethods.length; i < n; i++) {
+				CachedMethod cachedMethod = cachedMethods[i];
+				if (cachedMethod.method.equals(method)) {
+					invokeMethod.cachedMethod = cachedMethod;
+					break;
+				}
+			}
+			if (invokeMethod.cachedMethod == null) throw new KryoNetException("Method not found: " + method);
 
 			// A invocation doesn't need a response if it's async and no return values or exceptions are wanted back.
 			boolean needsResponse = transmitReturnValue || transmitExceptions || !nonBlocking;
@@ -466,8 +477,9 @@ public class ObjectSpace {
 	/** Internal message to invoke methods remotely. */
 	static public class InvokeMethod implements FrameworkMessage, KryoSerializable {
 		public int objectID;
-		public Method method;
+		public CachedMethod cachedMethod;
 		public Object[] args;
+
 		// The top bits of the ID indicate if the remote invocation should respond with return values and exceptions, respectively.
 		// The remaining bites are a counter. This means up to 63 responses can be stored before undefined behavior occurs due to
 		// possible duplicate IDs. A response data of 0 means to not respond.
@@ -475,22 +487,13 @@ public class ObjectSpace {
 
 		public void write (Kryo kryo, Output output) {
 			output.writeInt(objectID, true);
+			output.writeInt(cachedMethod.methodClassID, true);
+			output.writeByte(cachedMethod.methodIndex);
 
-			int methodClassID = kryo.getRegistration(method.getDeclaringClass()).getId();
-			output.writeInt(methodClassID, true);
-
-			CachedMethod[] cachedMethods = getMethods(kryo, method.getDeclaringClass());
-			CachedMethod cachedMethod = null;
-			for (int i = 0, n = cachedMethods.length; i < n; i++) {
-				cachedMethod = cachedMethods[i];
-				if (cachedMethod.method.equals(method)) {
-					output.writeByte(i);
-					break;
-				}
-			}
-
-			for (int i = 0, n = cachedMethod.serializers.length; i < n; i++) {
-				Serializer serializer = cachedMethod.serializers[i];
+			Serializer[] serializers = cachedMethod.serializers;
+			Object[] args = this.args;
+			for (int i = 0, n = serializers.length; i < n; i++) {
+				Serializer serializer = serializers[i];
 				if (serializer != null)
 					kryo.writeObjectOrNull(output, args[i], serializer);
 				else
@@ -505,20 +508,22 @@ public class ObjectSpace {
 
 			int methodClassID = input.readInt(true);
 			Class methodClass = kryo.getRegistration(methodClassID).getType();
+
 			byte methodIndex = input.readByte();
-			CachedMethod cachedMethod;
 			try {
 				cachedMethod = getMethods(kryo, methodClass)[methodIndex];
 			} catch (IndexOutOfBoundsException ex) {
 				throw new KryoException("Invalid method index " + methodIndex + " for class: " + methodClass.getName());
 			}
-			method = cachedMethod.method;
 
-			args = new Object[cachedMethod.serializers.length];
+			Serializer[] serializers = cachedMethod.serializers;
+			Class[] parameterTypes = cachedMethod.method.getParameterTypes();
+			Object[] args = new Object[serializers.length];
+			this.args = args;
 			for (int i = 0, n = args.length; i < n; i++) {
-				Serializer serializer = cachedMethod.serializers[i];
+				Serializer serializer = serializers[i];
 				if (serializer != null)
-					args[i] = kryo.readObjectOrNull(input, method.getParameterTypes()[i], serializer);
+					args[i] = kryo.readObjectOrNull(input, parameterTypes[i], serializer);
 				else
 					args[i] = kryo.readClassAndObject(input);
 			}
@@ -535,7 +540,7 @@ public class ObjectSpace {
 	}
 
 	static CachedMethod[] getMethods (Kryo kryo, Class type) {
-		CachedMethod[] cachedMethods = methodCache.get(type);
+		CachedMethod[] cachedMethods = methodCache.get(type); // Maybe should cache per Kryo instance?
 		if (cachedMethods != null) return cachedMethods;
 
 		ArrayList<Method> allMethods = new ArrayList();
@@ -545,7 +550,16 @@ public class ObjectSpace {
 			nextClass = nextClass.getSuperclass();
 			if (nextClass == Object.class) break;
 		}
-		PriorityQueue<Method> methods = new PriorityQueue(Math.max(1, allMethods.size()), new Comparator<Method>() {
+		ArrayList<Method> methods = new ArrayList(Math.max(1, allMethods.size()));
+		for (int i = 0, n = allMethods.size(); i < n; i++) {
+			Method method = allMethods.get(i);
+			int modifiers = method.getModifiers();
+			if (Modifier.isStatic(modifiers)) continue;
+			if (Modifier.isPrivate(modifiers)) continue;
+			if (method.isSynthetic()) continue;
+			methods.add(method);
+		}
+		Collections.sort(methods, new Comparator<Method>() {
 			public int compare (Method o1, Method o2) {
 				// Methods are sorted so they can be represented as an index.
 				int diff = o1.getName().compareTo(o2.getName());
@@ -561,23 +575,33 @@ public class ObjectSpace {
 				throw new RuntimeException("Two methods with same signature!"); // Impossible.
 			}
 		});
-		for (int i = 0, n = allMethods.size(); i < n; i++) {
-			Method method = allMethods.get(i);
-			int modifiers = method.getModifiers();
-			if (Modifier.isStatic(modifiers)) continue;
-			if (Modifier.isPrivate(modifiers)) continue;
-			if (method.isSynthetic()) continue;
-			methods.add(method);
-		}
+
+		Object methodAccess = null;
+		if (asm && !Util.isAndroid && Modifier.isPublic(type.getModifiers())) methodAccess = MethodAccess.get(type);
 
 		int n = methods.size();
 		cachedMethods = new CachedMethod[n];
 		for (int i = 0; i < n; i++) {
-			CachedMethod cachedMethod = new CachedMethod();
-			cachedMethod.method = methods.poll();
+			Method method = methods.get(i);
+			Class[] parameterTypes = method.getParameterTypes();
+
+			CachedMethod cachedMethod = null;
+			if (methodAccess != null) {
+				try {
+					AsmCachedMethod asmCachedMethod = new AsmCachedMethod();
+					asmCachedMethod.methodAccessIndex = ((MethodAccess)methodAccess).getIndex(method.getName(), parameterTypes);
+					asmCachedMethod.methodAccess = (MethodAccess)methodAccess;
+					cachedMethod = asmCachedMethod;
+				} catch (RuntimeException ignored) {
+				}
+			}
+
+			if (cachedMethod == null) cachedMethod = new CachedMethod();
+			cachedMethod.method = method;
+			cachedMethod.methodClassID = kryo.getRegistration(method.getDeclaringClass()).getId();
+			cachedMethod.methodIndex = i;
 
 			// Store the serializer for each final parameter.
-			Class[] parameterTypes = cachedMethod.method.getParameterTypes();
 			cachedMethod.serializers = new Serializer[parameterTypes.length];
 			for (int ii = 0, nn = parameterTypes.length; ii < nn; ii++)
 				if (kryo.isFinal(parameterTypes[ii])) cachedMethod.serializers[ii] = kryo.getSerializer(parameterTypes[ii]);
@@ -661,9 +685,29 @@ public class ObjectSpace {
 		});
 	}
 
+	/** If true, an attempt will be made to use ReflectASM for invoking methods. Default is true. */
+	static public void setAsm (boolean asm) {
+		ObjectSpace.asm = asm;
+	}
+
 	static class CachedMethod {
 		Method method;
+		int methodClassID;
+		int methodIndex;
 		Serializer[] serializers;
+
+		public Object invoke (Object target, Object[] args) throws IllegalAccessException, InvocationTargetException {
+			return method.invoke(target, args);
+		}
+	}
+
+	static class AsmCachedMethod extends CachedMethod {
+		MethodAccess methodAccess;
+		int methodAccessIndex = -1;
+
+		public Object invoke (Object target, Object[] args) throws IllegalAccessException, InvocationTargetException {
+			return methodAccess.invoke(target, methodAccessIndex, args);
+		}
 	}
 
 	/** Serializes an object registered with an ObjectSpace so the receiving side gets a {@link RemoteObject} proxy rather than the
