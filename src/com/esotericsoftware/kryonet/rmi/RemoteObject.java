@@ -35,6 +35,10 @@ public interface RemoteObject {
 	 *           be retrieved with {@link #waitForLastResponse()} or {@link #waitForResponse(byte)}, similar to a return value. */
 	public void setTransmitExceptions (boolean transmit);
 
+	/** If true, UDP will be used to send the remote method invocation. UDP remote method invocations will never return a response
+	 * and the invoking thread will not wait for a response. */
+	public void setUDP (boolean udp);
+
 	/** If false, calls to {@link Object#toString()} will return "<proxy>" instead of being invoking the remote method. Default is
 	 * false. */
 	public void setRemoteToString (boolean remoteToString);

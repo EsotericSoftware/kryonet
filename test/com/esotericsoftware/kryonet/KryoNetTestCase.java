@@ -9,6 +9,7 @@ import java.util.TimerTask;
 import junit.framework.TestCase;
 
 import com.esotericsoftware.minlog.Log;
+import com.esotericsoftware.minlog.Log.Logger;
 
 abstract public class KryoNetTestCase extends TestCase {
 	static public String host = "localhost";
@@ -21,7 +22,13 @@ abstract public class KryoNetTestCase extends TestCase {
 
 	public KryoNetTestCase () {
 		// Log.TRACE();
-	//	Log.DEBUG();
+		// Log.DEBUG();
+		Log.setLogger(new Logger() {
+			public void log (int level, String category, String message, Throwable ex) {
+				// if (category == null || category.equals("kryonet")) //
+				super.log(level, category, message, ex);
+			}
+		});
 	}
 
 	protected void setUp () throws Exception {

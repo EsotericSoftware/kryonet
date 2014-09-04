@@ -13,13 +13,13 @@ import java.io.IOException;
 public class RmiTest extends KryoNetTestCase {
 	/** In this test both the client and server have an ObjectSpace that contains a TestObject. When the client connects, the same
 	 * test is run on both the client and server. The test excersizes a number of remote method calls and other features. */
-	public void XtestRMI () throws IOException {
+	public void testRMI () throws IOException {
 		Server server = new Server();
 		Kryo serverKryo = server.getKryo();
 		register(serverKryo);
 
 		startEndPoint(server);
-		server.bind(tcpPort);
+		server.bind(tcpPort, udpPort);
 
 		final TestObjectImpl serverTestObject = new TestObjectImpl(4321);
 
@@ -66,7 +66,7 @@ public class RmiTest extends KryoNetTestCase {
 				stopEndPoints(2000);
 			}
 		});
-		client.connect(5000, host, tcpPort);
+		client.connect(5000, host, tcpPort, udpPort);
 
 		waitForThreads();
 	}
@@ -151,6 +151,12 @@ public class RmiTest extends KryoNetTestCase {
 				test.moo();
 				test.moo("Cow");
 				assertEquals(other, test.other());
+
+				// UDP calls that ignore the return value
+				remoteObject.setUDP(true);
+				test.moo("Meow");
+				assertEquals(0f, test.other());
+				remoteObject.setUDP(false);
 
 				// Test that RMI correctly waits for the remotely invoked method to exit
 				remoteObject.setResponseTimeout(5000);

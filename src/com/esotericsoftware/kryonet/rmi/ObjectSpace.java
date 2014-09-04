@@ -35,8 +35,8 @@ import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.util.ObjectIntMap;
 import com.esotericsoftware.reflectasm.MethodAccess;
 
-/** Allows methods on objects to be invoked remotely over TCP. Objects are {@link #register(int, Object) registered} with an ID.
- * The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
+/** Allows methods on objects to be invoked remotely over TCP or UDP. Objects are {@link #register(int, Object) registered} with an
+ * ID. The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
  * {@link #getRemoteObject(Connection, int, Class) access} registered objects.
  * <p>
  * It costs at least 2 bytes more to use remote method invocation than just sending the parameters. If the method has a return
@@ -44,9 +44,9 @@ import com.esotericsoftware.reflectasm.MethodAccess;
  * not final (note primitives are final) then an extra byte is written for that parameter.
  * @author Nathan Sweet <misc@n4te.com> */
 public class ObjectSpace {
-	static private final int returnValMask = 1 << 7;
-	static private final int returnExMask = 1 << 6;
-	static private final int responseIdMask = 0xff & ~returnValMask & ~returnExMask;
+	static private final int returnValueMask = 1 << 7;
+	static private final int returnExceptionMask = 1 << 6;
+	static private final int responseIdMask = 0xff & ~returnValueMask & ~returnExceptionMask;
 
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
@@ -208,8 +208,8 @@ public class ObjectSpace {
 		}
 
 		byte responseData = invokeMethod.responseData;
-		boolean transmitReturnVal = (responseData & returnValMask) == returnValMask;
-		boolean transmitExceptions = (responseData & returnExMask) == returnExMask;
+		boolean transmitReturnValue = (responseData & returnValueMask) == returnValueMask;
+		boolean transmitExceptions = (responseData & returnExceptionMask) == returnExceptionMask;
 		int responseID = responseData & responseIdMask;
 
 		CachedMethod cachedMethod = invokeMethod.cachedMethod;
@@ -233,15 +233,15 @@ public class ObjectSpace {
 		invokeMethodResult.objectID = invokeMethod.objectID;
 		invokeMethodResult.responseID = (byte)responseID;
 
-		// Do not return non-primitives if transmitReturnVal is false
-		if (!transmitReturnVal && !invokeMethod.cachedMethod.method.getReturnType().isPrimitive()) {
+		// Do not return non-primitives if transmitReturnValue is false.
+		if (!transmitReturnValue && !invokeMethod.cachedMethod.method.getReturnType().isPrimitive()) {
 			invokeMethodResult.result = null;
 		} else {
 			invokeMethodResult.result = result;
 		}
 
 		int length = connection.sendTCP(invokeMethodResult);
-		if (DEBUG) debug("kryonet", connection + " sent: " + result + " (" + length + ")");
+		if (DEBUG) debug("kryonet", connection + " sent TCP: " + result + " (" + length + ")");
 	}
 
 	/** Identical to {@link #getRemoteObject(Connection, int, Class...)} except returns the object cast to the specified interface
@@ -284,6 +284,7 @@ public class ObjectSpace {
 		private boolean transmitReturnValue = true;
 		private boolean transmitExceptions = true;
 		private boolean remoteToString;
+		private boolean udp;
 		private Byte lastResponseID;
 		private byte nextResponseId = 1;
 		private Listener responseListener;
@@ -340,6 +341,9 @@ public class ObjectSpace {
 				} else if (name.equals("setTransmitReturnValue")) {
 					transmitReturnValue = (Boolean)args[0];
 					return null;
+				} else if (name.equals("setUDP")) {
+					udp = (Boolean)args[0];
+					return null;
 				} else if (name.equals("setTransmitExceptions")) {
 					transmitExceptions = (Boolean)args[0];
 					return null;
@@ -379,7 +383,7 @@ public class ObjectSpace {
 			if (invokeMethod.cachedMethod == null) throw new KryoNetException("Method not found: " + method);
 
 			// A invocation doesn't need a response if it's async and no return values or exceptions are wanted back.
-			boolean needsResponse = transmitReturnValue || transmitExceptions || !nonBlocking;
+			boolean needsResponse = !udp && (transmitReturnValue || transmitExceptions || !nonBlocking);
 			byte responseID = 0;
 			if (needsResponse) {
 				synchronized (this) {
@@ -390,25 +394,25 @@ public class ObjectSpace {
 				}
 				// Pack other data into the high bits.
 				byte responseData = responseID;
-				if (transmitReturnValue) responseData |= returnValMask;
-				if (transmitExceptions) responseData |= returnExMask;
+				if (transmitReturnValue) responseData |= returnValueMask;
+				if (transmitExceptions) responseData |= returnExceptionMask;
 				invokeMethod.responseData = responseData;
 			} else {
 				invokeMethod.responseData = 0; // A response data of 0 means to not respond.
 			}
-			int length = connection.sendTCP(invokeMethod);
+			int length = udp ? connection.sendUDP(invokeMethod) : connection.sendTCP(invokeMethod);
 			if (DEBUG) {
 				String argString = "";
 				if (args != null) {
 					argString = Arrays.deepToString(args);
 					argString = argString.substring(1, argString.length() - 1);
 				}
-				debug("kryonet", connection + " sent: " + method.getDeclaringClass().getSimpleName() + "#" + method.getName() + "("
-					+ argString + ") (" + length + ")");
+				debug("kryonet", connection + " sent " + (udp ? "UDP" : "TCP") + ": " + method.getDeclaringClass().getSimpleName()
+					+ "#" + method.getName() + "(" + argString + ") (" + length + ")");
 			}
 
 			lastResponseID = (byte)(invokeMethod.responseData & responseIdMask);
-			if (nonBlocking) {
+			if (nonBlocking || udp) {
 				Class returnType = method.getReturnType();
 				if (returnType.isPrimitive()) {
 					if (returnType == int.class) return 0;
@@ -706,7 +710,11 @@ public class ObjectSpace {
 		int methodAccessIndex = -1;
 
 		public Object invoke (Object target, Object[] args) throws IllegalAccessException, InvocationTargetException {
-			return methodAccess.invoke(target, methodAccessIndex, args);
+			try {
+				return methodAccess.invoke(target, methodAccessIndex, args);
+			} catch (Exception ex) {
+				throw new InvocationTargetException(ex);
+			}
 		}
 	}
 
