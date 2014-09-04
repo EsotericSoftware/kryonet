@@ -140,9 +140,9 @@ public class Client extends Connection implements EndPoint {
 		close();
 		if (INFO) {
 			if (udpPort != -1)
-				info("Connecting: " + host + ":" + tcpPort + "/" + udpPort);
+				info("kryonet", "Connecting: " + host + ":" + tcpPort + "/" + udpPort);
 			else
-				info("Connecting: " + host + ":" + tcpPort);
+				info("kryonet", "Connecting: " + host + ":" + tcpPort);
 		}
 		id = -1;
 		try {
