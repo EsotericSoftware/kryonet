@@ -10,6 +10,7 @@ import java.nio.channels.SocketChannel;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
+import sun.rmi.transport.tcp.TCPConnection;
 
 import static com.esotericsoftware.minlog.Log.*;
 
@@ -309,4 +310,13 @@ public class Connection {
 		this.isConnected = isConnected;
 		if (isConnected && name == null) name = "Connection " + id;
 	}
+
+    public TcpConnection getTcp() {
+        return tcp;
+    }
+
+    public UdpConnection getUdp() {
+        return udp;
+    }
+
 }

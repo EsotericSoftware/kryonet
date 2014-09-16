@@ -1,6 +1,8 @@
 
 package com.esotericsoftware.kryonet;
 
+import com.esotericsoftware.kryonet.util.BandwidthMonitor;
+
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
@@ -13,7 +15,7 @@ import java.nio.channels.SocketChannel;
 import static com.esotericsoftware.minlog.Log.*;
 
 /** @author Nathan Sweet <misc@n4te.com> */
-class TcpConnection {
+public class TcpConnection {
 	static private final int IPTOS_LOWDELAY = 0x10;
 
 	SocketChannel socketChannel;
@@ -28,6 +30,7 @@ class TcpConnection {
 	private volatile long lastWriteTime, lastReadTime;
 	private int currentObjectLength;
 	private final Object writeLock = new Object();
+    private BandwidthMonitor bandwidth = new BandwidthMonitor();
 
 	public TcpConnection (Serialization serialization, int writeBufferSize, int objectBufferSize) {
 		this.serialization = serialization;
@@ -35,6 +38,10 @@ class TcpConnection {
 		readBuffer = ByteBuffer.allocate(objectBufferSize);
 		readBuffer.flip();
 	}
+
+    public BandwidthMonitor getBandwidth() {
+        return bandwidth;
+    }
 
 	public SelectionKey accept (Selector selector, SocketChannel socketChannel) throws IOException {
 		writeBuffer.clear();
@@ -52,6 +59,7 @@ class TcpConnection {
 			if (DEBUG) {
 				debug("kryonet", "Port " + socketChannel.socket().getLocalPort() + "/TCP connected to: "
 					+ socketChannel.socket().getRemoteSocketAddress());
+                bandwidth.setDebug(true);
 			}
 
 			lastReadTime = lastWriteTime = System.currentTimeMillis();
@@ -107,6 +115,10 @@ class TcpConnection {
 				int bytesRead = socketChannel.read(readBuffer);
 				readBuffer.flip();
 				if (bytesRead == -1) throw new SocketException("Connection is closed.");
+
+                bandwidth.incrementBytesReceived(bytesRead);
+                bandwidth.incrementPacketsReceived(1);
+
 				lastReadTime = System.currentTimeMillis();
 
 				if (readBuffer.remaining() < lengthLength) return null;
@@ -126,6 +138,9 @@ class TcpConnection {
 			readBuffer.flip();
 			if (bytesRead == -1) throw new SocketException("Connection is closed.");
 			lastReadTime = System.currentTimeMillis();
+
+            bandwidth.incrementBytesReceived(bytesRead);
+            bandwidth.incrementPacketsReceived(1);
 
 			if (readBuffer.remaining() < length) return null;
 		}
@@ -170,7 +185,10 @@ class TcpConnection {
 				buffer.compact();
 				buffer.flip();
 			}
-			if (socketChannel.write(buffer) == 0) break;
+
+            int bytes = socketChannel.write(buffer);
+			if (bytes == 0) break;
+            bandwidth.incrementBytesSent(bytes);
 		}
 		buffer.compact();
 
@@ -181,6 +199,8 @@ class TcpConnection {
 	public int send (Connection connection, Object object) throws IOException {
 		SocketChannel socketChannel = this.socketChannel;
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
+        bandwidth.incrementPacketsSent(1);
+
 		synchronized (writeLock) {
 			// Leave room for length.
 			int start = writeBuffer.position();
