@@ -221,13 +221,13 @@ public class Client extends Connection implements EndPoint {
 		synchronized (updateLock) { // Blocks to avoid a select while the selector is used to bind the server connection.
 		}
 
-        // Update bandwidth monitoring
+        // Update connection metrics
         if (tcp != null) {
-            tcp.getBandwidth().update();
+            tcp.getMetrics().update();
         }
 
         if (udp != null) {
-            udp.getBandwidth().update();
+            udp.getMetrics().update();
         }
 
 		long startTime = System.currentTimeMillis();

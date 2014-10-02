@@ -1,45 +1,46 @@
 package com.esotericsoftware.kryonet.util;
 
-import java.util.ArrayDeque;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
-public class BandwidthMonitor {
+import static com.esotericsoftware.minlog.Log.*;
+
+public class ConnectionMetrics {
 
     private final static int HISTORY_MAXIMUM = 120;
     private long timestampLastUpdate;
-    private boolean debug = false;
 
-    public class BandwidthInformation {
+    public class MetricsInformation {
 
         public long timestamp;
-        public long countPacketsSent;
-        public long countPacketsReceived;
+        public long countObjectsSent;
+        public long countObjectsReceived;
         public long countBytesSent;
         public long countBytesReceived;
 
     }
 
-    private ArrayDeque<BandwidthInformation> history;
-    private BandwidthInformation current;
+    private ConcurrentLinkedDeque<MetricsInformation> history;
+    private MetricsInformation current;
 
-    public BandwidthMonitor() {
-        history = new ArrayDeque<BandwidthInformation>();
+    public ConnectionMetrics() {
+        history = new ConcurrentLinkedDeque<MetricsInformation>();
         for (int i = 0; i < HISTORY_MAXIMUM; i++) {
-            history.push(new BandwidthInformation());
+            history.push(new MetricsInformation());
         }
 
-        current = new BandwidthInformation();
+        current = new MetricsInformation();
         current.timestamp = System.currentTimeMillis();
 
         timestampLastUpdate = current.timestamp;
     }
 
 
-    public ArrayDeque<BandwidthInformation> getHistory() {
+    public ConcurrentLinkedDeque<MetricsInformation> getHistory() {
         return history;
     }
 
 
-    public BandwidthInformation getLastInformation() {
+    public MetricsInformation getLastInformation() {
         if (history.size() > 0) {
             return history.getLast();
         } else {
@@ -51,20 +52,17 @@ public class BandwidthMonitor {
 
         history.clear();
         for (int i = 0; i < HISTORY_MAXIMUM; i++) {
-            history.push(new BandwidthInformation());
+            history.push(new MetricsInformation());
         }
         current.timestamp = System.currentTimeMillis();
         current.countBytesReceived = 0;
         current.countBytesSent = 0;
-        current.countPacketsReceived = 0;
-        current.countPacketsSent = 0;
+        current.countObjectsReceived = 0;
+        current.countObjectsSent = 0;
         timestampLastUpdate = current.timestamp;
 
     }
 
-    public void setDebug(boolean debug) {
-        this.debug = debug;
-    }
 
     public void update() {
         long timeNow = System.currentTimeMillis();
@@ -73,37 +71,37 @@ public class BandwidthMonitor {
 
             history.removeFirst();
 
-            BandwidthInformation information = new BandwidthInformation();
+            MetricsInformation information = new MetricsInformation();
             information.timestamp = current.timestamp;
             information.countBytesSent = current.countBytesSent;
             information.countBytesReceived = current.countBytesReceived;
-            information.countPacketsReceived = current.countPacketsReceived;
-            information.countPacketsSent = current.countPacketsSent;
+            information.countObjectsReceived = current.countObjectsReceived;
+            information.countObjectsSent = current.countObjectsSent;
 
             history.addLast(information);
 
-            if (debug == true) {
-                System.out.println("PACKETS(sent:" + current.countPacketsSent + "/recv:" + current.countPacketsReceived + ") " +
+            if (DEBUG) {
+                System.out.println("PACKETS(sent:" + current.countObjectsSent + "/recv:" + current.countObjectsReceived + ") " +
                         "BYTES(sent:" + current.countBytesSent + "/recv:" + current.countBytesReceived + ")");
             }
 
             current.timestamp = timeNow;
             current.countBytesReceived = 0;
             current.countBytesSent = 0;
-            current.countPacketsReceived = 0;
-            current.countPacketsSent = 0;
+            current.countObjectsReceived = 0;
+            current.countObjectsSent = 0;
             timestampLastUpdate = timeNow;
 
         }
     }
 
 
-    public void incrementPacketsSent(long count) {
-        current.countPacketsSent += count;
+    public void incrementObjectsSent(long count) {
+        current.countObjectsSent += count;
     }
 
-    public void incrementPacketsReceived(long count) {
-        current.countPacketsReceived += count;
+    public void incrementObjectsReceived(long count) {
+        current.countObjectsReceived += count;
     }
 
     public void incrementBytesSent(long count) {

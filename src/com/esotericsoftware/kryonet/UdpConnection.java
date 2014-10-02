@@ -1,7 +1,7 @@
 
 package com.esotericsoftware.kryonet;
 
-import com.esotericsoftware.kryonet.util.BandwidthMonitor;
+import com.esotericsoftware.kryonet.util.ConnectionMetrics;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -15,7 +15,7 @@ import java.nio.channels.Selector;
 import static com.esotericsoftware.minlog.Log.*;
 
 /** @author Nathan Sweet <misc@n4te.com> */
-public class UdpConnection {
+class UdpConnection {
 	InetSocketAddress connectedAddress;
 	DatagramChannel datagramChannel;
 	int keepAliveMillis = 19000;
@@ -24,20 +24,16 @@ public class UdpConnection {
 	private SelectionKey selectionKey;
 	private final Object writeLock = new Object();
 	private long lastCommunicationTime;
-    private BandwidthMonitor bandwidth = new BandwidthMonitor();
+    private ConnectionMetrics metrics = new ConnectionMetrics();
 
 	public UdpConnection (Serialization serialization, int bufferSize) {
 		this.serialization = serialization;
 		readBuffer = ByteBuffer.allocate(bufferSize);
 		writeBuffer = ByteBuffer.allocateDirect(bufferSize);
-
-        if (DEBUG) {
-            bandwidth.setDebug(true);
-        }
 	}
 
-    public BandwidthMonitor getBandwidth() {
-        return bandwidth;
+    public ConnectionMetrics getMetrics() {
+        return metrics;
     }
 
 	public void bind (Selector selector, InetSocketAddress localPort) throws IOException {
@@ -86,8 +82,8 @@ public class UdpConnection {
 		lastCommunicationTime = System.currentTimeMillis();
 
         InetSocketAddress addr = (InetSocketAddress) datagramChannel.receive(readBuffer);
-        bandwidth.incrementPacketsReceived(1);
-        bandwidth.incrementBytesReceived(readBuffer.limit());
+        metrics.incrementObjectsReceived(1);
+        metrics.incrementBytesReceived(readBuffer.limit());
 		return addr;
 	}
 
@@ -113,7 +109,7 @@ public class UdpConnection {
 		DatagramChannel datagramChannel = this.datagramChannel;
 		if (datagramChannel == null) throw new SocketException("Connection is closed.");
 
-        bandwidth.incrementPacketsSent(1);
+        metrics.incrementObjectsSent(1);
 
 		synchronized (writeLock) {
 			try {
@@ -125,7 +121,7 @@ public class UdpConnection {
 				writeBuffer.flip();
 				int length = writeBuffer.limit();
 				datagramChannel.send(writeBuffer, address);
-                bandwidth.incrementBytesSent(length);
+                metrics.incrementBytesSent(length);
 				lastCommunicationTime = System.currentTimeMillis();
 
 				boolean wasFullWrite = !writeBuffer.hasRemaining();
