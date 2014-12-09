@@ -21,6 +21,7 @@ KryoNet is ideal for any client/server application. It is very efficient, so is 
 - [Logging](#logging)
 - [Remote Method Invocation (RMI)](#remote-method-invocation)
 - [KryoNet versus ?](#kryonet-versus-)
+- [Maven Build](#maven-build)
 - [Further reading](#further-reading)
 
 ## Running a server
@@ -246,6 +247,24 @@ The [Priobit](http://code.google.com/p/priobit/) project is a minimal layer over
 
 The [Java Game Networking](http://code.google.com/p/jgn/) project is a higher level library similar to KryoNet. JGN does not have as simple of an API.
 
+## Maven Build
+
+```xml
+<repositories>
+   <repository>
+      <id>clojars</id>
+      <url>http://clojars.org/repo/</url>
+   </repository>
+</repositories>
+
+<dependencies>
+   <dependency>
+      <groupId>kryonet</groupId>
+      <artifactId>kryonet</artifactId>
+      <version>2.21</version>
+   </dependency>
+</dependencies>
+```
 
 ## Further reading
 
