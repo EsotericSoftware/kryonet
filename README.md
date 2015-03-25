@@ -270,6 +270,6 @@ The [Java Game Networking](http://code.google.com/p/jgn/) project is a higher le
 
 Beyond this documentation page, you may find the following links useful:
 
-- [Kryo](http://code.google.com/p/kryo/) (used to do the serialization in KryoNet)
+- [Kryo](https://github.com/EsotericSoftware/kryo) (used to do the serialization in KryoNet)
 - [Example code](http://code.google.com/p/kryonet/source/browse/#svn/trunk/kryonet/examples/com/esotericsoftware/kryonet/examples)
 - [Unit tests](http://code.google.com/p/kryonet/source/browse/#svn/trunk/kryonet/test/com/esotericsoftware/kryonet)
