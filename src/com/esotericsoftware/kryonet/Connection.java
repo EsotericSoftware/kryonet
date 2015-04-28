@@ -43,7 +43,7 @@ public class Connection {
 	TcpConnection tcp;
 	UdpConnection udp;
 	InetSocketAddress udpRemoteAddress;
-	private Listener[] listeners = {};
+	private IsListener[] isListeners = {};
 	private Object listenerLock = new Object();
 	private int lastPingID;
 	private long lastPingSendTime;
@@ -183,37 +183,37 @@ public class Connection {
 	}
 
 	/** If the listener already exists, it is not added again. */
-	public void addListener (Listener listener) {
-		if (listener == null) throw new IllegalArgumentException("listener cannot be null.");
+	public void addListener (IsListener isListener) {
+		if (isListener == null) throw new IllegalArgumentException("listener cannot be null.");
 		synchronized (listenerLock) {
-			Listener[] listeners = this.listeners;
-			int n = listeners.length;
+			IsListener[] isListeners = this.isListeners;
+			int n = isListeners.length;
 			for (int i = 0; i < n; i++)
-				if (listener == listeners[i]) return;
-			Listener[] newListeners = new Listener[n + 1];
-			newListeners[0] = listener;
-			System.arraycopy(listeners, 0, newListeners, 1, n);
-			this.listeners = newListeners;
+				if (isListener == isListeners[i]) return;
+			IsListener[] newIsListeners = new IsListener[n + 1];
+			newIsListeners[0] = isListener;
+			System.arraycopy(isListeners, 0, newIsListeners, 1, n);
+			this.isListeners = newIsListeners;
 		}
-		if (TRACE) trace("kryonet", "Connection listener added: " + listener.getClass().getName());
+		if (TRACE) trace("kryonet", "Connection listener added: " + isListener.getClass().getName());
 	}
 
-	public void removeListener (Listener listener) {
-		if (listener == null) throw new IllegalArgumentException("listener cannot be null.");
+	public void removeListener (IsListener isListener) {
+		if (isListener == null) throw new IllegalArgumentException("listener cannot be null.");
 		synchronized (listenerLock) {
-			Listener[] listeners = this.listeners;
-			int n = listeners.length;
+			IsListener[] isListeners = this.isListeners;
+			int n = isListeners.length;
 			if (n == 0) return;
-			Listener[] newListeners = new Listener[n - 1];
+			IsListener[] newIsListeners = new IsListener[n - 1];
 			for (int i = 0, ii = 0; i < n; i++) {
-				Listener copyListener = listeners[i];
-				if (listener == copyListener) continue;
+				IsListener copyIsListener = isListeners[i];
+				if (isListener == copyIsListener) continue;
 				if (ii == n - 1) return;
-				newListeners[ii++] = copyListener;
+				newIsListeners[ii++] = copyIsListener;
 			}
-			this.listeners = newListeners;
+			this.isListeners = newIsListeners;
 		}
-		if (TRACE) trace("kryonet", "Connection listener removed: " + listener.getClass().getName());
+		if (TRACE) trace("kryonet", "Connection listener removed: " + isListener.getClass().getName());
 	}
 
 	void notifyConnected () {
@@ -227,21 +227,21 @@ public class Connection {
 				}
 			}
 		}
-		Listener[] listeners = this.listeners;
-		for (int i = 0, n = listeners.length; i < n; i++)
-			listeners[i].connected(this);
+		IsListener[] isListeners = this.isListeners;
+		for (int i = 0, n = isListeners.length; i < n; i++)
+			isListeners[i].connected(this);
 	}
 
 	void notifyDisconnected () {
-		Listener[] listeners = this.listeners;
-		for (int i = 0, n = listeners.length; i < n; i++)
-			listeners[i].disconnected(this);
+		IsListener[] isListeners = this.isListeners;
+		for (int i = 0, n = isListeners.length; i < n; i++)
+			isListeners[i].disconnected(this);
 	}
 
 	void notifyIdle () {
-		Listener[] listeners = this.listeners;
-		for (int i = 0, n = listeners.length; i < n; i++) {
-			listeners[i].idle(this);
+		IsListener[] isListeners = this.isListeners;
+		for (int i = 0, n = isListeners.length; i < n; i++) {
+			isListeners[i].idle(this);
 			if (!isIdle()) break;
 		}
 	}
@@ -259,9 +259,9 @@ public class Connection {
 				sendTCP(ping);
 			}
 		}
-		Listener[] listeners = this.listeners;
-		for (int i = 0, n = listeners.length; i < n; i++)
-			listeners[i].received(this, object);
+		IsListener[] isListeners = this.isListeners;
+		for (int i = 0, n = isListeners.length; i < n; i++)
+			isListeners[i].received(this, object);
 	}
 
 	/** Returns the local {@link Client} or {@link Server} to which this connection belongs. */

@@ -21,7 +21,6 @@ package com.esotericsoftware.kryonet;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -51,7 +50,7 @@ public class Server implements EndPoint {
 	private UdpConnection udp;
 	private Connection[] connections = {};
 	private IntMap<Connection> pendingConnections = new IntMap();
-	Listener[] listeners = {};
+	IsListener[] isListeners = {};
 	private Object listenerLock = new Object();
 	private int nextConnectionID = 1;
 	private volatile boolean shutdown;
@@ -59,30 +58,30 @@ public class Server implements EndPoint {
 	private Thread updateThread;
 	private ServerDiscoveryHandler discoveryHandler;
 
-	private Listener dispatchListener = new Listener() {
+	private IsListener dispatchIsListener = new Listener() {
 		public void connected (Connection connection) {
-			Listener[] listeners = Server.this.listeners;
-			for (int i = 0, n = listeners.length; i < n; i++)
-				listeners[i].connected(connection);
+			IsListener[] isListeners = Server.this.isListeners;
+			for (int i = 0, n = isListeners.length; i < n; i++)
+				isListeners[i].connected(connection);
 		}
 
 		public void disconnected (Connection connection) {
 			removeConnection(connection);
-			Listener[] listeners = Server.this.listeners;
-			for (int i = 0, n = listeners.length; i < n; i++)
-				listeners[i].disconnected(connection);
+			IsListener[] isListeners = Server.this.isListeners;
+			for (int i = 0, n = isListeners.length; i < n; i++)
+				isListeners[i].disconnected(connection);
 		}
 
 		public void received (Connection connection, Object object) {
-			Listener[] listeners = Server.this.listeners;
-			for (int i = 0, n = listeners.length; i < n; i++)
-				listeners[i].received(connection, object);
+			IsListener[] isListeners = Server.this.isListeners;
+			for (int i = 0, n = isListeners.length; i < n; i++)
+				isListeners[i].received(connection, object);
 		}
 
 		public void idle (Connection connection) {
-			Listener[] listeners = Server.this.listeners;
-			for (int i = 0, n = listeners.length; i < n; i++)
-				listeners[i].idle(connection);
+			IsListener[] isListeners = Server.this.isListeners;
+			for (int i = 0, n = isListeners.length; i < n; i++)
+				isListeners[i].idle(connection);
 		}
 	};
 
@@ -421,7 +420,7 @@ public class Server implements EndPoint {
 			if (nextConnectionID == -1) nextConnectionID = 1;
 			connection.id = id;
 			connection.setConnected(true);
-			connection.addListener(dispatchListener);
+			connection.addListener(dispatchIsListener);
 
 			if (udp == null)
 				addConnection(connection);
@@ -516,36 +515,36 @@ public class Server implements EndPoint {
 		}
 	}
 
-	public void addListener (Listener listener) {
-		if (listener == null) throw new IllegalArgumentException("listener cannot be null.");
+	public void addListener (IsListener isListener) {
+		if (isListener == null) throw new IllegalArgumentException("listener cannot be null.");
 		synchronized (listenerLock) {
-			Listener[] listeners = this.listeners;
-			int n = listeners.length;
+			IsListener[] isListeners = this.isListeners;
+			int n = isListeners.length;
 			for (int i = 0; i < n; i++)
-				if (listener == listeners[i]) return;
-			Listener[] newListeners = new Listener[n + 1];
-			newListeners[0] = listener;
-			System.arraycopy(listeners, 0, newListeners, 1, n);
-			this.listeners = newListeners;
+				if (isListener == isListeners[i]) return;
+			IsListener[] newIsListeners = new IsListener[n + 1];
+			newIsListeners[0] = isListener;
+			System.arraycopy(isListeners, 0, newIsListeners, 1, n);
+			this.isListeners = newIsListeners;
 		}
-		if (TRACE) trace("kryonet", "Server listener added: " + listener.getClass().getName());
+		if (TRACE) trace("kryonet", "Server listener added: " + isListener.getClass().getName());
 	}
 
-	public void removeListener (Listener listener) {
-		if (listener == null) throw new IllegalArgumentException("listener cannot be null.");
+	public void removeListener (IsListener isListener) {
+		if (isListener == null) throw new IllegalArgumentException("listener cannot be null.");
 		synchronized (listenerLock) {
-			Listener[] listeners = this.listeners;
-			int n = listeners.length;
-			Listener[] newListeners = new Listener[n - 1];
+			IsListener[] isListeners = this.isListeners;
+			int n = isListeners.length;
+			IsListener[] newIsListeners = new IsListener[n - 1];
 			for (int i = 0, ii = 0; i < n; i++) {
-				Listener copyListener = listeners[i];
-				if (listener == copyListener) continue;
+				IsListener copyIsListener = isListeners[i];
+				if (isListener == copyIsListener) continue;
 				if (ii == n - 1) return;
-				newListeners[ii++] = copyListener;
+				newIsListeners[ii++] = copyIsListener;
 			}
-			this.listeners = newListeners;
+			this.isListeners = newIsListeners;
 		}
-		if (TRACE) trace("kryonet", "Server listener removed: " + listener.getClass().getName());
+		if (TRACE) trace("kryonet", "Server listener removed: " + isListener.getClass().getName());
 	}
 
 	/** Closes all open connections and the server port(s). */
