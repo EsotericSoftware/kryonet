@@ -573,13 +573,13 @@ public class Server implements EndPoint {
 			this.udp = null;
 		}
 
+		synchronized (updateLock) { // Blocks to avoid a select while the selector is used to bind the server connection.
+		}
 		// Select one last time to complete closing the socket.
-		synchronized (updateLock) {
-			selector.wakeup();
-			try {
-				selector.selectNow();
-			} catch (IOException ignored) {
-			}
+		selector.wakeup();
+		try {
+			selector.selectNow();
+		} catch (IOException ignored) {
 		}
 	}
 

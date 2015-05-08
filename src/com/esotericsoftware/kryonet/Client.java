@@ -405,15 +405,15 @@ public class Client extends Connection implements EndPoint {
 
 	public void close () {
 		super.close();
+		synchronized (updateLock) { // Blocks to avoid a select while the selector is used to bind the server connection.
+		}
 		// Select one last time to complete closing the socket.
-		synchronized (updateLock) {
-			if (!isClosed) {
-				isClosed = true;
-				selector.wakeup();
-				try {
-					selector.selectNow();
-				} catch (IOException ignored) {
-				}
+		if (!isClosed) {
+			isClosed = true;
+			selector.wakeup();
+			try {
+				selector.selectNow();
+			} catch (IOException ignored) {
 			}
 		}
 	}
