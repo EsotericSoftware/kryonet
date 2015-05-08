@@ -68,7 +68,7 @@ The SomeRequest and SomeResponse classes are defined like this:
     }
 ```
 
-[Kryo](http://code.google.com/p/kryo/) automatically serializes the objects to and from bytes.
+[Kryo](https://github.com/EsotericSoftware/kryo) automatically serializes the objects to and from bytes.
 
 
 ## Connecting a client
@@ -117,7 +117,7 @@ For the above examples to work, the classes that are going to be sent over the n
 
 This must be done on both the client and server, before any network communication occurs. It is very important that the exact same classes are registered on both the client and server, and that they are registered in the exact same order. Because of this, typically the code that registers classes is placed in a method on a class available to both the client and server.
 
-Please see the [Kryo serialization library](http://code.google.com/p/kryo/) for more information on how objects are serialized for network transfer. Kryo can serialize any object and supports data compression (eg, deflate compression).
+Please see the [Kryo serialization library](https://github.com/EsotericSoftware/kryo) for more information on how objects are serialized for network transfer. Kryo can serialize any object and supports data compression (eg, deflate compression).
 
 
 ## TCP and UDP
@@ -165,7 +165,7 @@ This will print the address of the first server found running on UDP port 54777.
 
 ## Logging
 
-KryoNet makes use of the low overhead, lightweight [MinLog logging library](http://code.google.com/p/minlog/). The logging level can be set in this way:
+KryoNet makes use of the low overhead, lightweight [MinLog logging library](https://github.com/EsotericSoftware/minlog). The logging level can be set in this way:
 
 ```java
     Log.set(LEVEL_TRACE);
@@ -173,14 +173,14 @@ KryoNet makes use of the low overhead, lightweight [MinLog logging library](http
 
 KryoNet does minimal logging at INFO and above levels. DEBUG is good to use during development and indicates the total number of bytes for each object sent. TRACE is good to use when debugging a specific problem, but outputs too much information to leave on all the time.
 
-MinLog supports a fixed logging level, which will remove logging statements below that level. For efficiency, KryoNet can be compiled with a fixed logging level MinLog JAR. See [MinLog](http://code.google.com/p/minlog/) for more information.
+MinLog supports a fixed logging level, which will remove logging statements below that level. For efficiency, KryoNet can be compiled with a fixed logging level MinLog JAR. See [MinLog](https://github.com/EsotericSoftware/minlog) for more information.
 
 
 ## Pluggable Serialization
 
-Serialization can be customized by providing a Serialization instance to the Client and Server constructors. By default KryoNet uses [Kryo](http://code.google.com/p/kryo/) for serialization. Kryo uses a binary format and is very efficient, highly configurable, and does automatic serialization for most object graphs.
+Serialization can be customized by providing a Serialization instance to the Client and Server constructors. By default KryoNet uses [Kryo](https://github.com/EsotericSoftware/kryo) for serialization. Kryo uses a binary format and is very efficient, highly configurable, and does automatic serialization for most object graphs.
 
-JsonSerialization is provided which uses [JsonBeans](http://code.google.com/p/jsonbeans/) to do serialization using JSON. JSON is human readable so is convenient for use during development to monitor the data being sent and received.
+JsonSerialization is provided which uses [JsonBeans](https://github.com/EsotericSoftware/jsonbeans) to do serialization using JSON. JSON is human readable so is convenient for use during development to monitor the data being sent and received.
 
 
 ## Remote Method Invocation
@@ -271,5 +271,5 @@ The [Java Game Networking](http://code.google.com/p/jgn/) project is a higher le
 Beyond this documentation page, you may find the following links useful:
 
 - [Kryo](https://github.com/EsotericSoftware/kryo) (used to do the serialization in KryoNet)
-- [Example code](http://code.google.com/p/kryonet/source/browse/#svn/trunk/kryonet/examples/com/esotericsoftware/kryonet/examples)
-- [Unit tests](http://code.google.com/p/kryonet/source/browse/#svn/trunk/kryonet/test/com/esotericsoftware/kryonet)
+- [Example code](examples/com/esotericsoftware/kryonet/examples)
+- [Unit tests](test/com/esotericsoftware/kryonet)
