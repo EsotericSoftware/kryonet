@@ -243,7 +243,7 @@ KryoNet makes the assumptions that it will only be used for client/server archit
 
 The [Apache MINA](http://mina.apache.org/) project is similar to KryoNet. MINA's API is lower level and a great deal more complicated. Even the simplest client/server will require a lot more code to be written. MINA also is not integrated with a robust serialization framework and doesn't intrinsically support RMI.
 
-The [Priobit](http://code.google.com/p/priobit/) project is a minimal layer over NIO. It provides TCP networking similar to KryoNet, but without the higher level features. Priobit requires all network communication to occur on a single thread.
+The [PyroNet](https://code.google.com/p/pyronet/) project is a minimal layer over NIO. It provides TCP networking similar to KryoNet, but without the higher level features. Priobit requires all network communication to occur on a single thread.
 
 The [Java Game Networking](http://code.google.com/p/jgn/) project is a higher level library similar to KryoNet. JGN does not have as simple of an API.
 
