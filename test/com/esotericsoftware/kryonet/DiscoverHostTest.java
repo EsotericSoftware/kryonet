@@ -19,20 +19,21 @@
 
 package com.esotericsoftware.kryonet;
 
+import static com.esotericsoftware.minlog.Log.*;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 
-import static com.esotericsoftware.minlog.Log.*;
-
 public class DiscoverHostTest extends KryoNetTestCase {
 
-	public void testBroadcast() throws IOException {
+	public void testBroadcast () throws IOException {
 		// This server exists solely to reply to Client#discoverHost.
 		// It wouldn't be needed if the real server was using UDP.
 		final Server broadcastServer = new Server();
@@ -43,7 +44,7 @@ public class DiscoverHostTest extends KryoNetTestCase {
 		startEndPoint(server);
 		server.bind(54555);
 		server.addListener(new Listener() {
-			public void disconnected(Connection connection) {
+			public void disconnected (Connection connection) {
 				broadcastServer.stop();
 				server.stop();
 			}
@@ -66,14 +67,12 @@ public class DiscoverHostTest extends KryoNetTestCase {
 		waitForThreads();
 	}
 
-	public void testCustomBroadcast() throws IOException {
+	public void testCustomBroadcast () throws IOException {
 
 		ServerDiscoveryHandler serverDiscoveryHandler = new ServerDiscoveryHandler() {
-
 			@Override
-			public boolean onDiscoverHost(UdpConnection udp,
-					InetSocketAddress fromAddress, Serialization serialization)
-					throws IOException {
+			public boolean onDiscoverHost (DatagramChannel datagramChannel, InetSocketAddress fromAddress,
+				Serialization serialization) throws IOException {
 
 				DiscoveryResponsePacket packet = new DiscoveryResponsePacket();
 				packet.id = 42;
@@ -84,29 +83,27 @@ public class DiscoverHostTest extends KryoNetTestCase {
 				serialization.write(null, buffer, packet);
 				buffer.flip();
 
-				udp.datagramChannel.send(buffer, fromAddress);
+				datagramChannel.send(buffer, fromAddress);
 
 				return true;
 			}
-
 		};
 
 		ClientDiscoveryHandler clientDiscoveryHandler = new ClientDiscoveryHandler() {
-
 			private Input input = null;
 
 			@Override
-			public DatagramPacket onRequestNewDatagramPacket() {
+			public DatagramPacket onRequestNewDatagramPacket () {
 				byte[] buffer = new byte[1024];
 				input = new Input(buffer);
 				return new DatagramPacket(buffer, buffer.length);
 			}
 
 			@Override
-			public void onDiscoveredHost(DatagramPacket datagramPacket, Kryo kryo) {
+			public void onDiscoveredHost (DatagramPacket datagramPacket, Kryo kryo) {
 				if (input != null) {
 					DiscoveryResponsePacket packet;
-					packet = (DiscoveryResponsePacket) kryo.readClassAndObject(input);
+					packet = (DiscoveryResponsePacket)kryo.readClassAndObject(input);
 					info("test", "packet.id = " + packet.id);
 					info("test", "packet.gameName = " + packet.gameName);
 					info("test", "packet.playerName = " + packet.playerName);
@@ -120,12 +117,11 @@ public class DiscoverHostTest extends KryoNetTestCase {
 			}
 
 			@Override
-			public void onFinally() {
+			public void onFinally () {
 				if (input != null) {
 					input.close();
 				}
 			}
-
 		};
 
 		// This server exists solely to reply to Client#discoverHost.
@@ -142,7 +138,7 @@ public class DiscoverHostTest extends KryoNetTestCase {
 		startEndPoint(server);
 		server.bind(54555);
 		server.addListener(new Listener() {
-			public void disconnected(Connection connection) {
+			public void disconnected (Connection connection) {
 				broadcastServer.stop();
 				server.stop();
 			}
@@ -171,7 +167,7 @@ public class DiscoverHostTest extends KryoNetTestCase {
 
 	public static class DiscoveryResponsePacket {
 
-		public DiscoveryResponsePacket() {
+		public DiscoveryResponsePacket () {
 			//
 		}
 

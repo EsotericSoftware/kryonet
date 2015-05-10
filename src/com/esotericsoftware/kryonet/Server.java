@@ -329,7 +329,8 @@ public class Server implements EndPoint {
 							}
 							if (object instanceof DiscoverHost) {
 								try {
-									boolean responseSent = discoveryHandler.onDiscoverHost(udp, fromAddress, serialization);
+									boolean responseSent = discoveryHandler
+										.onDiscoverHost(udp.datagramChannel, fromAddress, serialization);
 									if (DEBUG && responseSent) debug("kryonet", "Responded to host discovery from: " + fromAddress);
 								} catch (IOException ex) {
 									if (WARN) warn("kryonet", "Error replying to host discovery from: " + fromAddress, ex);
