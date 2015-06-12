@@ -306,11 +306,13 @@ public class ObjectSpace {
 		private Byte lastResponseID;
 		private byte nextResponseId = 1;
 		private Listener responseListener;
+		private volatile int totalPendingResponsesCnt = 0;
 
 		final ReentrantLock lock = new ReentrantLock();
 		final Condition responseCondition = lock.newCondition();
-		final InvokeMethodResult[] responseTable = new InvokeMethodResult[64];
-		final boolean[] pendingResponses = new boolean[64];
+		final InvokeMethodResult[] responseTable = new InvokeMethodResult[responseIdMask+1];
+		final boolean[] pendingResponses = new boolean[responseIdMask+1];
+		final Object invokeLocker = new Object();
 
 		public RemoteInvocationHandler (Connection connection, final int objectID) {
 			super();
@@ -404,11 +406,25 @@ public class ObjectSpace {
 			boolean needsResponse = !udp && (transmitReturnValue || transmitExceptions || !nonBlocking);
 			byte responseID = 0;
 			if (needsResponse) {
-				synchronized (this) {
-					// Increment the response counter and put it into the low bits of the responseID.
-					responseID = nextResponseId++;
-					if (nextResponseId > responseIdMask) nextResponseId = 1;
-					pendingResponses[responseID] = true;
+				synchronized (invokeLocker) {
+					while (true) {
+						synchronized (this) {
+							if (totalPendingResponsesCnt < responseIdMask) {
+								// Find the first non-pending responseID.
+								do {
+									responseID = nextResponseId++;
+									if (nextResponseId > responseIdMask) nextResponseId = 1;
+								} while (pendingResponses[responseID]);
+								pendingResponses[responseID] = true;
+								totalPendingResponsesCnt++;
+								break;
+							}
+						}
+						//This sleep is under lock "synchronized(invokeLocker)" but not under lock "synchronized(this)"
+						//So all sequenced invocations will wait (and totalPendingResponsesCnt could not increased),
+						// but invocation result can be handled (and totalPendingResponsesCnt could decreased)
+						Thread.sleep(10);
+					}
 				}
 				// Pack other data into the high bits.
 				byte responseData = responseID;
@@ -454,8 +470,11 @@ public class ObjectSpace {
 				throw new TimeoutException("Response timed out: " + method.getDeclaringClass().getName() + "." + method.getName());
 			} finally {
 				synchronized (this) {
-					pendingResponses[responseID] = false;
-					responseTable[responseID] = null;
+					if (pendingResponses[responseID]) {
+						totalPendingResponsesCnt--;
+						pendingResponses[responseID] = false;
+						responseTable[responseID] = null;
+					}
 				}
 			}
 		}
