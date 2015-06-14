@@ -68,7 +68,7 @@ public class ObjectSpace {
 
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
-	static private final HashMap<Class, CachedMethod[]> methodCache = new HashMap();
+	static private final HashMap<Kryo, HashMap<Class, CachedMethod[]>> methodCache = new HashMap();
 	static private boolean asm = true;
 
 	final IntMap idToObject = new IntMap();
@@ -581,7 +581,12 @@ public class ObjectSpace {
 	}
 
 	static CachedMethod[] getMethods (Kryo kryo, Class type) {
-		CachedMethod[] cachedMethods = methodCache.get(type); // Maybe should cache per Kryo instance?
+		HashMap<Class, CachedMethod[]> cache = methodCache.get(kryo);
+		if (cache == null) {
+			cache = new HashMap<Class, CachedMethod[]>();
+			methodCache.put(kryo, cache);
+		}
+		CachedMethod[] cachedMethods = cache.get(type);
 		if (cachedMethods != null) return cachedMethods;
 
 		ArrayList<Method> allMethods = new ArrayList();
@@ -649,7 +654,7 @@ public class ObjectSpace {
 
 			cachedMethods[i] = cachedMethod;
 		}
-		methodCache.put(type, cachedMethods);
+		cache.put(type, cachedMethods);
 		return cachedMethods;
 	}
 
