@@ -65,6 +65,7 @@ public class Listener {
 				if (classToMethod.containsKey(type)) return; // Only fail on the first attempt to find the method.
 				try {
 					method = getClass().getMethod("received", new Class[] {Connection.class, type});
+					method.setAccessible(true);
 				} catch (SecurityException ex) {
 					if (ERROR) error("kryonet", "Unable to access method: received(Connection, " + type.getName() + ")", ex);
 					return;
