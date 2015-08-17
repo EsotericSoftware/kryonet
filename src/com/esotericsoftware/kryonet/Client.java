@@ -368,6 +368,7 @@ public class Client extends Connection implements EndPoint {
 				}
 				close();
 			} catch (KryoNetException ex) {
+				lastProtocolError = ex;
 				if (ERROR) {
 					if (isConnected)
 						error("kryonet", "Error updating connection: " + this, ex);

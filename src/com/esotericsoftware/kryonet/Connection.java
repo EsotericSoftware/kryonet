@@ -49,6 +49,7 @@ public class Connection {
 	private long lastPingSendTime;
 	private int returnTripTime;
 	volatile boolean isConnected;
+	volatile KryoNetException lastProtocolError;
 
 	protected Connection () {
 	}
@@ -67,6 +68,15 @@ public class Connection {
 	public boolean isConnected () {
 		return isConnected;
 	}
+	
+   /**
+    * Returns the last protocol error that occured on the connection.
+    * 
+    * @return The last protocol error or null if none error occured.
+    */
+   public KryoNetException getLastProtocolError() {
+      return lastProtocolError;
+   }
 
 	/** Sends the object over the network using TCP.
 	 * @return The number of bytes sent.
