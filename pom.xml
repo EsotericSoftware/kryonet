@@ -1,95 +1,105 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <parent>
-        <groupId>org.sonatype.oss</groupId>
-        <artifactId>oss-parent</artifactId>
-        <version>7</version>
-    </parent>
-    <modelVersion>4.0.0</modelVersion>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<parent>
+		<groupId>org.sonatype.oss</groupId>
+		<artifactId>oss-parent</artifactId>
+		<version>7</version>
+	</parent>
+	<modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.esotericsoftware</groupId>
-    <artifactId>kryonet</artifactId>
-    <version>3.0.0</version>
-    <packaging>jar</packaging>
+	<groupId>com.esotericsoftware</groupId>
+	<artifactId>kryonet</artifactId>
+	<version>3.0.0</version>
+	<packaging>jar</packaging>
 
-    <name>kryonet</name>
-    <description>TCP and UDP client/server library for Java</description>
-    <url>https://github.com/EsotericSoftware/kryonet</url>
+	<name>kryonet</name>
+	<description>TCP and UDP client/server library for Java</description>
+	<url>https://github.com/EsotericSoftware/kryonet</url>
 
-    <licenses>
-        <license>
-            <name>New BSD License</name>
-            <url>http://www.opensource.org/licenses/bsd-license.php</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
+	<licenses>
+		<license>
+			<name>New BSD License</name>
+			<url>http://www.opensource.org/licenses/bsd-license.php</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
 
-    <developers>
-        <developer>
-            <id>nathan.sweet</id>
-            <name>Nathan Sweet</name>
-            <email>nathan.sweet@gmail.com</email>
-        </developer>
-    </developers>
+	<developers>
+		<developer>
+			<id>nathan.sweet</id>
+			<name>Nathan Sweet</name>
+			<email>nathan.sweet@gmail.com</email>
+		</developer>
+	</developers>
 
-    <scm>
-        <url>https://github.com/EsotericSoftware/kryonet</url>
-        <connection>scm:git:https://github.com/EsotericSoftware/kryonet.git</connection>
-        <developerConnection>scm:git:https://github.com/EsotericSoftware/kryonet.git</developerConnection>
-        <tag>HEAD</tag>
-    </scm>
+	<scm>
+		<url>https://github.com/EsotericSoftware/kryonet</url>
+		<connection>scm:git:https://github.com/EsotericSoftware/kryonet.git</connection>
+		<developerConnection>scm:git:https://github.com/EsotericSoftware/kryonet.git</developerConnection>
+		<tag>HEAD</tag>
+	</scm>
 
-    <build>
-        <!-- Set nonstandard source and test source dirs -->
-        <sourceDirectory>src</sourceDirectory>
-        <testSourceDirectory>test</testSourceDirectory>
+	<build>
+		<!-- Set nonstandard source and test source dirs -->
+		<sourceDirectory>src</sourceDirectory>
+		<testSourceDirectory>test</testSourceDirectory>
 
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.3</version>
-                <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
-                </configuration>
-            </plugin>
-            <plugin>
-		        <groupId>org.apache.maven.plugins</groupId>
-		        <artifactId>maven-shade-plugin</artifactId>
-		        <version>2.4.3</version>
-		        <configuration>
-		          <!-- put your configurations here -->
-		        </configuration>
-		        <executions>
-		          <execution>
-		            <phase>package</phase>
-		            <goals>
-		              <goal>shade</goal>
-		            </goals>
-		          </execution>
-		        </executions>
-		      </plugin>
-        </plugins>
-    </build>
+		<resources>
+			<resource>
+				<directory>${basedir}/src</directory>
+				<includes>
+					<include>**/*.java</include>
+				</includes>
+			</resource>
+		</resources>
 
-    <dependencies>
-        <dependency>
-            <groupId>com.esotericsoftware</groupId>
-            <artifactId>kryo</artifactId>
-            <version>4.0.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.esotericsoftware</groupId>
-            <artifactId>jsonbeans</artifactId>
-            <version>0.7</version>
-        </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.11</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.3</version>
+				<configuration>
+					<source>1.8</source>
+					<target>1.8</target>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>2.4.3</version>
+				<configuration>
+					<!-- put your configurations here -->
+				</configuration>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.esotericsoftware</groupId>
+			<artifactId>kryo</artifactId>
+			<version>4.0.0</version>
+		</dependency>
+		<dependency>
+			<groupId>com.esotericsoftware</groupId>
+			<artifactId>jsonbeans</artifactId>
+			<version>0.7</version>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.11</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
 
 </project>
