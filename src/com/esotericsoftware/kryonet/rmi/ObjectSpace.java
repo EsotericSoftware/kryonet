@@ -45,11 +45,7 @@ import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.serializers.FieldSerializer;
 import com.esotericsoftware.kryo.util.IntMap;
 import com.esotericsoftware.kryo.util.Util;
-import com.esotericsoftware.kryonet.Connection;
-import com.esotericsoftware.kryonet.EndPoint;
-import com.esotericsoftware.kryonet.FrameworkMessage;
-import com.esotericsoftware.kryonet.KryoNetException;
-import com.esotericsoftware.kryonet.Listener;
+import com.esotericsoftware.kryonet.*;
 import com.esotericsoftware.kryonet.util.ObjectIntMap;
 import com.esotericsoftware.reflectasm.MethodAccess;
 
@@ -77,7 +73,7 @@ public class ObjectSpace {
 	final Object connectionsLock = new Object();
 	Executor executor;
 
-	private final Listener invokeListener = new Listener() {
+	private final IsListener invokeIsListener = new Listener() {
 		public void received (final Connection connection, Object object) {
 			if (!(object instanceof InvokeMethod)) return;
 			if (connections != null) {
@@ -167,7 +163,7 @@ public class ObjectSpace {
 	public void close () {
 		Connection[] connections = this.connections;
 		for (int i = 0; i < connections.length; i++)
-			connections[i].removeListener(invokeListener);
+			connections[i].removeListener(invokeIsListener);
 
 		synchronized (instancesLock) {
 			ArrayList<Connection> temp = new ArrayList(Arrays.asList(instances));
@@ -189,7 +185,7 @@ public class ObjectSpace {
 			connections = newConnections;
 		}
 
-		connection.addListener(invokeListener);
+		connection.addListener(invokeIsListener);
 
 		if (TRACE) trace("kryonet", "Added connection to ObjectSpace: " + connection);
 	}
@@ -198,7 +194,7 @@ public class ObjectSpace {
 	public void removeConnection (Connection connection) {
 		if (connection == null) throw new IllegalArgumentException("connection cannot be null.");
 
-		connection.removeListener(invokeListener);
+		connection.removeListener(invokeIsListener);
 
 		synchronized (connectionsLock) {
 			ArrayList<Connection> temp = new ArrayList(Arrays.asList(connections));
@@ -305,7 +301,7 @@ public class ObjectSpace {
 		private boolean udp;
 		private Byte lastResponseID;
 		private byte nextResponseId = 1;
-		private Listener responseListener;
+		private IsListener responseIsListener;
 
 		final ReentrantLock lock = new ReentrantLock();
 		final Condition responseCondition = lock.newCondition();
@@ -317,7 +313,7 @@ public class ObjectSpace {
 			this.connection = connection;
 			this.objectID = objectID;
 
-			responseListener = new Listener() {
+			responseIsListener = new Listener() {
 				public void received (Connection connection, Object object) {
 					if (!(object instanceof InvokeMethodResult)) return;
 					InvokeMethodResult invokeMethodResult = (InvokeMethodResult)object;
@@ -340,7 +336,7 @@ public class ObjectSpace {
 					close();
 				}
 			};
-			connection.addListener(responseListener);
+			connection.addListener(responseIsListener);
 		}
 
 		public Object invoke (Object proxy, Method method, Object[] args) throws Exception {
@@ -492,7 +488,7 @@ public class ObjectSpace {
 		}
 
 		void close () {
-			connection.removeListener(responseListener);
+			connection.removeListener(responseIsListener);
 		}
 	}
 

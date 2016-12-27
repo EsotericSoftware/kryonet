@@ -425,13 +425,13 @@ public class Client extends Connection implements EndPoint {
 		selector.close();
 	}
 
-	public void addListener (Listener listener) {
-		super.addListener(listener);
+	public void addListener (IsListener isListener) {
+		super.addListener(isListener);
 		if (TRACE) trace("kryonet", "Client listener added.");
 	}
 
-	public void removeListener (Listener listener) {
-		super.removeListener(listener);
+	public void removeListener (IsListener isListener) {
+		super.removeListener(isListener);
 		if (TRACE) trace("kryonet", "Client listener removed.");
 	}
 

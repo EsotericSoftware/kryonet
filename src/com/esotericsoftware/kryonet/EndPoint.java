@@ -30,9 +30,9 @@ public interface EndPoint extends Runnable {
 	public Serialization getSerialization ();
 
 	/** If the listener already exists, it is not added again. */
-	public void addListener (Listener listener);
+	public void addListener (IsListener isListener);
 
-	public void removeListener (Listener listener);
+	public void removeListener (IsListener isListener);
 
 	/** Continually updates this end point until {@link #stop()} is called. */
 	public void run ();

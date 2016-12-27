@@ -31,26 +31,26 @@ import java.util.concurrent.TimeUnit;
 import static com.esotericsoftware.minlog.Log.*;
 
 /** Used to be notified about connection events. */
-public class Listener {
+public class Listener implements IsListener {
 	/** Called when the remote end has been connected. This will be invoked before any objects are received by
 	 * {@link #received(Connection, Object)}. This will be invoked on the same thread as {@link Client#update(int)} and
 	 * {@link Server#update(int)}. This method should not block for long periods as other network activity will not be processed
 	 * until it returns. */
-	public void connected (Connection connection) {
+	public void connected(Connection connection) {
 	}
 
 	/** Called when the remote end is no longer connected. There is no guarantee as to what thread will invoke this method. */
-	public void disconnected (Connection connection) {
+	public void disconnected(Connection connection) {
 	}
 
 	/** Called when an object has been received from the remote end of the connection. This will be invoked on the same thread as
 	 * {@link Client#update(int)} and {@link Server#update(int)}. This method should not block for long periods as other network
 	 * activity will not be processed until it returns. */
-	public void received (Connection connection, Object object) {
+	public void received(Connection connection, Object object) {
 	}
 
 	/** Called when the connection is below the {@link Connection#setIdleThreshold(float) idle threshold}. */
-	public void idle (Connection connection) {
+	public void idle(Connection connection) {
 	}
 
 	/** Uses reflection to called "received(Connection, XXX)" on the listener, where XXX is the received object type. Note this
@@ -92,17 +92,17 @@ public class Listener {
 	/** Wraps a listener and queues notifications as {@link Runnable runnables}. This allows the runnables to be processed on a
 	 * different thread, preventing the connection's update thread from being blocked. */
 	static public abstract class QueuedListener extends Listener {
-		final Listener listener;
+		final IsListener isListener;
 
-		public QueuedListener (Listener listener) {
-			if (listener == null) throw new IllegalArgumentException("listener cannot be null.");
-			this.listener = listener;
+		public QueuedListener (IsListener isListener) {
+			if (isListener == null) throw new IllegalArgumentException("listener cannot be null.");
+			this.isListener = isListener;
 		}
 
 		public void connected (final Connection connection) {
 			queue(new Runnable() {
 				public void run () {
-					listener.connected(connection);
+					isListener.connected(connection);
 				}
 			});
 		}
@@ -110,7 +110,7 @@ public class Listener {
 		public void disconnected (final Connection connection) {
 			queue(new Runnable() {
 				public void run () {
-					listener.disconnected(connection);
+					isListener.disconnected(connection);
 				}
 			});
 		}
@@ -118,7 +118,7 @@ public class Listener {
 		public void received (final Connection connection, final Object object) {
 			queue(new Runnable() {
 				public void run () {
-					listener.received(connection, object);
+					isListener.received(connection, object);
 				}
 			});
 		}
@@ -126,7 +126,7 @@ public class Listener {
 		public void idle (final Connection connection) {
 			queue(new Runnable() {
 				public void run () {
-					listener.idle(connection);
+					isListener.idle(connection);
 				}
 			});
 		}
@@ -139,13 +139,13 @@ public class Listener {
 		protected final ExecutorService threadPool;
 
 		/** Creates a single thread to process notification events. */
-		public ThreadedListener (Listener listener) {
-			this(listener, Executors.newFixedThreadPool(1));
+		public ThreadedListener (IsListener isListener) {
+			this(isListener, Executors.newFixedThreadPool(1));
 		}
 
 		/** Uses the specified threadPool to process notification events. */
-		public ThreadedListener (Listener listener, ExecutorService threadPool) {
-			super(listener);
+		public ThreadedListener (IsListener isListener, ExecutorService threadPool) {
+			super(isListener);
 			if (threadPool == null) throw new IllegalArgumentException("threadPool cannot be null.");
 			this.threadPool = threadPool;
 		}
@@ -163,8 +163,8 @@ public class Listener {
 		private final int lagMillisMin, lagMillisMax;
 		final LinkedList<Runnable> runnables = new LinkedList();
 
-		public LagListener (int lagMillisMin, int lagMillisMax, Listener listener) {
-			super(listener);
+		public LagListener (int lagMillisMin, int lagMillisMax, IsListener isListener) {
+			super(isListener);
 			this.lagMillisMin = lagMillisMin;
 			this.lagMillisMax = lagMillisMax;
 			threadPool = Executors.newScheduledThreadPool(1);
