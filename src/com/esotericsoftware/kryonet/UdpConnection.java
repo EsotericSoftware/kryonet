@@ -19,6 +19,8 @@
 
 package com.esotericsoftware.kryonet;
 
+import com.esotericsoftware.kryonet.util.ConnectionMetrics;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -40,12 +42,17 @@ class UdpConnection {
 	private SelectionKey selectionKey;
 	private final Object writeLock = new Object();
 	private long lastCommunicationTime;
+    private ConnectionMetrics metrics = new ConnectionMetrics();
 
 	public UdpConnection (Serialization serialization, int bufferSize) {
 		this.serialization = serialization;
 		readBuffer = ByteBuffer.allocate(bufferSize);
 		writeBuffer = ByteBuffer.allocateDirect(bufferSize);
 	}
+
+    public ConnectionMetrics getMetrics() {
+        return metrics;
+    }
 
 	public void bind (Selector selector, InetSocketAddress localPort) throws IOException {
 		close();
@@ -91,7 +98,11 @@ class UdpConnection {
 		DatagramChannel datagramChannel = this.datagramChannel;
 		if (datagramChannel == null) throw new SocketException("Connection is closed.");
 		lastCommunicationTime = System.currentTimeMillis();
-		return (InetSocketAddress)datagramChannel.receive(readBuffer);
+
+        InetSocketAddress addr = (InetSocketAddress) datagramChannel.receive(readBuffer);
+        metrics.incrementObjectsReceived(1);
+        metrics.incrementBytesReceived(readBuffer.limit());
+		return addr;
 	}
 
 	public Object readObject (Connection connection) {
@@ -115,6 +126,9 @@ class UdpConnection {
 	public int send (Connection connection, Object object, SocketAddress address) throws IOException {
 		DatagramChannel datagramChannel = this.datagramChannel;
 		if (datagramChannel == null) throw new SocketException("Connection is closed.");
+
+        metrics.incrementObjectsSent(1);
+
 		synchronized (writeLock) {
 			try {
 				try {
@@ -125,7 +139,7 @@ class UdpConnection {
 				writeBuffer.flip();
 				int length = writeBuffer.limit();
 				datagramChannel.send(writeBuffer, address);
-
+                metrics.incrementBytesSent(length);
 				lastCommunicationTime = System.currentTimeMillis();
 
 				boolean wasFullWrite = !writeBuffer.hasRemaining();

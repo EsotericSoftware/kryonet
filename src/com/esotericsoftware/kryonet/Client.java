@@ -238,6 +238,16 @@ public class Client extends Connection implements EndPoint {
 		updateThread = Thread.currentThread();
 		synchronized (updateLock) { // Blocks to avoid a select while the selector is used to bind the server connection.
 		}
+
+        // Update connection metrics
+        if (tcp != null) {
+            tcp.getMetrics().update();
+        }
+
+        if (udp != null) {
+            udp.getMetrics().update();
+        }
+
 		long startTime = System.currentTimeMillis();
 		int select = 0;
 		if (timeout > 0) {

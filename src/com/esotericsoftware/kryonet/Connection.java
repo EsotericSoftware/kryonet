@@ -28,6 +28,7 @@ import java.nio.channels.SocketChannel;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
+import com.esotericsoftware.kryonet.util.ConnectionMetrics;
 
 import static com.esotericsoftware.minlog.Log.*;
 
@@ -337,4 +338,22 @@ public class Connection {
 		this.isConnected = isConnected;
 		if (isConnected && name == null) name = "Connection " + id;
 	}
+
+    public ConnectionMetrics getMetricsTCP() {
+        if (tcp != null) {
+            return tcp.getMetrics();
+        } else {
+            return null;
+        }
+    }
+
+    public ConnectionMetrics getMetricsUDP() {
+        if (udp != null) {
+            return udp.getMetrics();
+        } else {
+            return null;
+        }
+
+    }
+
 }
