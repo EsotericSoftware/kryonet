@@ -91,7 +91,10 @@ class UdpConnection {
 		DatagramChannel datagramChannel = this.datagramChannel;
 		if (datagramChannel == null) throw new SocketException("Connection is closed.");
 		lastCommunicationTime = System.currentTimeMillis();
-		return (InetSocketAddress)datagramChannel.receive(readBuffer);
+		if(!datagramChannel.isConnected())
+			return (InetSocketAddress)datagramChannel.receive(readBuffer); // always null on Android >= 5.0
+		datagramChannel.read(readBuffer);
+		return connectedAddress;
 	}
 
 	public Object readObject (Connection connection) {
