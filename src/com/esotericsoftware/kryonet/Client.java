@@ -455,21 +455,122 @@ public class Client extends Connection implements EndPoint {
 		dataBuffer.get(data);
 		for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
 			for (InetAddress address : Collections.list(iface.getInetAddresses())) {
-				// Java 1.5 doesn't support getting the subnet mask, so try the two most common.
-				byte[] ip = address.getAddress();
-				ip[3] = -1; // 255.255.255.0
+				byte[][] allBroadcastByte=allPossibleBroadcastAddrs(address.getAddress());
+
+				//All possible subnet masks (based on ip) are used to broadcast
+				InetAddress[] allBroadcast=new InetAddress[allBroadcastByte.length];
 				try {
-					socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
-				} catch (Exception ignored) {
-				}
-				ip[2] = -1; // 255.255.0.0
-				try {
-					socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(ip), udpPort));
-				} catch (Exception ignored) {
-				}
+					for (int i = 0; i < allBroadcast.length; i++) {
+						socket.send(new DatagramPacket(data, data.length, InetAddress.getByAddress(allBroadcastByte[i]), udpPort));
+					}
+				} catch (Exception ignored) {}
 			}
 		}
 		if (DEBUG) debug("kryonet", "Broadcasted host discovery on port: " + udpPort);
+	}
+
+	//Finds all the possible broadcast addresses for a given ipv4 address of the form {byte, byte, byte, byte}
+	//The highest valued 1 bit is found, and all broadcast addresses from there to 0.0.0.3/30 are returned
+	private static byte[][] allPossibleBroadcastAddrs(byte[] ip) {
+		byte[][] output=new byte[][]{};
+		Vector<byte[]> outputA=new Vector<byte[]>();
+		int firstOne=firstOne(ip);
+		switch(firstOne) {
+			case 0:
+				outputA.add(new byte[]{-1, -1, -1, -1});
+			case 1:
+				outputA.add(new byte[]{(byte)(ip[0]|127), -1, -1, -1});
+			case 2:
+				outputA.add(new byte[]{(byte)(ip[0]|63), -1, -1, -1});
+			case 3:
+				outputA.add(new byte[]{(byte)(ip[0]|31), -1, -1, -1});
+			case 4:
+				outputA.add(new byte[]{(byte)(ip[0]|15), -1, -1, -1});
+			case 5:
+				outputA.add(new byte[]{(byte)(ip[0]|7), -1, -1, -1});
+			case 6:
+				outputA.add(new byte[]{(byte)(ip[0]|3), -1, -1, -1});
+			case 7:
+				outputA.add(new byte[]{(byte)(ip[0]|1), -1, -1, -1});
+			case 8:
+				outputA.add(new byte[]{ip[0], -1, -1, -1});
+			case 9:
+				outputA.add(new byte[]{ip[0], (byte)(ip[1]|127), -1, -1});
+			case 10:
+				outputA.add(new byte[]{ip[0], (byte)(ip[1]|63), -1, -1});
+			case 11:
+				outputA.add(new byte[]{ip[0], (byte)(ip[1]|31), -1, -1});
+			case 12:
+				outputA.add(new byte[]{ip[0], (byte)(ip[1]|15), -1, -1});
+			case 13:
+				outputA.add(new byte[]{ip[0], (byte)(ip[1]|7), -1, -1});
+			case 14:
+				outputA.add(new byte[]{ip[0], (byte)(ip[1]|3), -1, -1});
+			case 15:
+				outputA.add(new byte[]{ip[0], (byte)(ip[1]|1), -1, -1});
+			case 16:
+				outputA.add(new byte[]{ip[0], ip[1], -1, -1});
+			case 17:
+				outputA.add(new byte[]{ip[0], ip[1], (byte)(ip[2]|127), -1});
+			case 18:
+				outputA.add(new byte[]{ip[0], ip[1], (byte)(ip[2]|63), -1});
+			case 19:
+				outputA.add(new byte[]{ip[0], ip[1], (byte)(ip[2]|31), -1});
+			case 20:
+				outputA.add(new byte[]{ip[0], ip[1], (byte)(ip[2]|15), -1});
+			case 21:
+				outputA.add(new byte[]{ip[0], ip[1], (byte)(ip[2]|7), -1});
+			case 22:
+				outputA.add(new byte[]{ip[0], ip[1], (byte)(ip[2]|3), -1});
+			case 23:
+				outputA.add(new byte[]{ip[0], ip[1], (byte)(ip[2]|1), -1});
+			case 24:
+				outputA.add(new byte[]{ip[0], ip[1], ip[2], -1});
+			case 25:
+				outputA.add(new byte[]{ip[0], ip[1], ip[2], (byte)(ip[3]|127)});
+			case 26:
+				outputA.add(new byte[]{ip[0], ip[1], ip[2], (byte)(ip[3]|63)});
+			case 27:
+				outputA.add(new byte[]{ip[0], ip[1], ip[2], (byte)(ip[3]|31)});
+			case 28:
+				outputA.add(new byte[]{ip[0], ip[1], ip[2], (byte)(ip[3]|15)});
+			case 29:
+				outputA.add(new byte[]{ip[0], ip[1], ip[2], (byte)(ip[3]|7)});
+			case 30:
+				outputA.add(new byte[]{ip[0], ip[1], ip[2], (byte)(ip[3]|3)});
+				break;
+			default:  //Broadcast address without a subnet mask
+				outputA.add(new byte[]{-1, -1, -1, -1});
+				break;
+		}
+
+		output=new byte[outputA.size()][];
+		int i=0;
+		for (byte[] addr: outputA) {
+			output[i]=addr;
+			i++;
+		}
+		return output;
+	}
+
+	//0-indexed from the left. 32 means no 1 bit was found
+	private static int firstOne(byte[] ip) {
+		boolean firstOneFound=false;
+		byte checkedBit=0;
+		//For each octet until a 1 bit is found...
+		for (int octet=0; octet<ip.length; octet++) {
+			//For each bit in that octet until a 1 bit is found...
+			for (int bit = 0; bit < 8; bit++) {
+				//Bit shift over to that bit and check if it is 1
+				if ((byte)(ip[octet] >> 7-bit)==1) {
+					firstOneFound=true;
+				}
+				//If the bit is one, break immediately
+				if (firstOneFound) break;
+				checkedBit++;
+			}
+		}
+		return checkedBit;
 	}
 
 	/** Broadcasts a UDP message on the LAN to discover any running servers. The address of the first server to respond is returned.
