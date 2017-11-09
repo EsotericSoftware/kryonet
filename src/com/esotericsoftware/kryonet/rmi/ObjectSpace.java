@@ -374,6 +374,11 @@ public class ObjectSpace {
 				} else if (name.equals("waitForLastResponse")) {
 					if (lastResponseID == null) throw new IllegalStateException("There is no last response to wait for.");
 					return waitForResponse(lastResponseID);
+				} else if (name.equals("hasLastResponse")) {
+					if (lastResponseID == null) throw new IllegalStateException("There is no last response.");
+					synchronized (this) {
+						return responseTable[lastResponseID] != null;
+					}
 				} else if (name.equals("getLastResponseID")) {
 					if (lastResponseID == null) throw new IllegalStateException("There is no last response ID.");
 					return lastResponseID;
@@ -381,6 +386,10 @@ public class ObjectSpace {
 					if (!transmitReturnValue && !transmitExceptions && nonBlocking)
 						throw new IllegalStateException("This RemoteObject is currently set to ignore all responses.");
 					return waitForResponse((Byte)args[0]);
+				} else if (name.equals("hasResponse")) {
+					synchronized (this) {
+						return responseTable[(Byte)args[0]] != null;
+					}
 				} else if (name.equals("getConnection")) {
 					return connection;
 				}

@@ -66,6 +66,10 @@ public interface RemoteObject {
 	 * @see ObjectSpace#getRemoteObject(com.esotericsoftware.kryonet.Connection, int, Class...) */
 	public Object waitForLastResponse ();
 
+	/** Returns true if the response to the last method invocation has been received and can be retrieved using
+	 * {@link #waitForLastResponse()} without blocking. */
+	public Object hasLastResponse ();
+
 	/** Gets the ID of response for the last method invocation. */
 	public byte getLastResponseID ();
 
@@ -75,6 +79,10 @@ public interface RemoteObject {
 	 * calls are made, or risk undefined behavior due to identical IDs.
 	 * @see ObjectSpace#getRemoteObject(com.esotericsoftware.kryonet.Connection, int, Class...) */
 	public Object waitForResponse (byte responseID);
+
+	/** Returns true if the response to the specified method invocation has been received and can be retrieved using
+	 * {@link #waitForResponse(byte)} without blocking. */
+	public Object hasResponse (byte responseID);
 
 	/** Causes this RemoteObject to stop listening to the connection for method invocation response messages. */
 	public void close ();
