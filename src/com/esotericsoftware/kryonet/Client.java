@@ -120,7 +120,7 @@ public class Client extends Connection implements EndPoint {
 	}
 
 	public Kryo getKryo () {
-		return ((KryoSerialization)serialization).getKryo();
+		return serialization instanceof KryoSerialization ? ((KryoSerialization)serialization).getKryo() : null;
 	}
 
 	/** Opens a TCP only client.
@@ -472,7 +472,8 @@ public class Client extends Connection implements EndPoint {
 		if (DEBUG) debug("kryonet", "Broadcasted host discovery on port: " + udpPort);
 	}
 
-	/** Broadcasts a UDP message on the LAN to discover any running servers. The address of the first server to respond is returned.
+	/** Broadcasts a UDP message on the LAN to discover any running servers. The address of the first server to respond is
+	 * returned.
 	 * @param udpPort The UDP port of the server.
 	 * @param timeoutMillis The number of milliseconds to wait for a response.
 	 * @return the first server found, or null if no server responded. */

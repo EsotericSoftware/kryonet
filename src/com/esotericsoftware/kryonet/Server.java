@@ -133,7 +133,7 @@ public class Server implements EndPoint {
 	}
 
 	public Kryo getKryo () {
-		return ((KryoSerialization)serialization).getKryo();
+		return serialization instanceof KryoSerialization ? ((KryoSerialization)serialization).getKryo() : null;
 	}
 
 	/** Opens a TCP only server.
@@ -317,9 +317,8 @@ public class Server implements EndPoint {
 									connection.udpRemoteAddress = fromAddress;
 									addConnection(connection);
 									connection.sendTCP(new RegisterUDP());
-									if (DEBUG)
-										debug("kryonet", "Port " + udp.datagramChannel.socket().getLocalPort() + "/UDP connected to: "
-											+ fromAddress);
+									if (DEBUG) debug("kryonet",
+										"Port " + udp.datagramChannel.socket().getLocalPort() + "/UDP connected to: " + fromAddress);
 									connection.notifyConnected();
 									continue;
 								}
@@ -329,8 +328,8 @@ public class Server implements EndPoint {
 							}
 							if (object instanceof DiscoverHost) {
 								try {
-									boolean responseSent = discoveryHandler
-										.onDiscoverHost(udp.datagramChannel, fromAddress, serialization);
+									boolean responseSent = discoveryHandler.onDiscoverHost(udp.datagramChannel, fromAddress,
+										serialization);
 									if (DEBUG && responseSent) debug("kryonet", "Responded to host discovery from: " + fromAddress);
 								} catch (IOException ex) {
 									if (WARN) warn("kryonet", "Error replying to host discovery from: " + fromAddress, ex);

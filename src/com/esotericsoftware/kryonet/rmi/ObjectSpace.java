@@ -49,6 +49,7 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.EndPoint;
 import com.esotericsoftware.kryonet.FrameworkMessage;
 import com.esotericsoftware.kryonet.KryoNetException;
+import com.esotericsoftware.kryonet.KryoSerialization;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.util.ObjectIntMap;
 import com.esotericsoftware.reflectasm.MethodAccess;
@@ -60,6 +61,8 @@ import com.esotericsoftware.reflectasm.MethodAccess;
  * It costs at least 2 bytes more to use remote method invocation than just sending the parameters. If the method has a return
  * value which is not {@link RemoteObject#setNonBlocking(boolean) ignored}, an extra byte is written. If the type of a parameter
  * is not final (note primitives are final) then an extra byte is written for that parameter.
+ * <p>
+ * ObjectSpace requires {@link KryoSerialization}.
  * @author Nathan Sweet <misc@n4te.com> */
 public class ObjectSpace {
 	static private final int returnValueMask = 1 << 7;
