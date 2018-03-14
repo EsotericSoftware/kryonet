@@ -19,6 +19,8 @@
 
 package com.esotericsoftware.kryonet;
 
+import static com.esotericsoftware.minlog.Log.*;
+
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
@@ -27,8 +29,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-
-import static com.esotericsoftware.minlog.Log.*;
 
 /** @author Nathan Sweet <misc@n4te.com> */
 class TcpConnection {
@@ -160,9 +160,8 @@ class TcpConnection {
 		}
 
 		readBuffer.limit(oldLimit);
-		if (readBuffer.position() - startPosition != length)
-			throw new KryoNetException("Incorrect number of bytes (" + (startPosition + length - readBuffer.position())
-				+ " remaining) used to deserialize object: " + object);
+		if (readBuffer.position() - startPosition != length) throw new KryoNetException("Incorrect number of bytes ("
+			+ (startPosition + length - readBuffer.position()) + " remaining) used to deserialize object: " + object);
 
 		return object;
 	}
@@ -200,15 +199,15 @@ class TcpConnection {
 		SocketChannel socketChannel = this.socketChannel;
 		if (socketChannel == null) throw new SocketException("Connection is closed.");
 		synchronized (writeLock) {
-			// Leave room for length.
 			int start = writeBuffer.position();
 			int lengthLength = serialization.getLengthLength();
-			writeBuffer.position(writeBuffer.position() + lengthLength);
-
-			// Write data.
 			try {
+				// Leave room for length.
+				writeBuffer.position(writeBuffer.position() + lengthLength);
+
+				// Write data.
 				serialization.write(connection, writeBuffer, object);
-			} catch (KryoNetException ex) {
+			} catch (Throwable ex) {
 				throw new KryoNetException("Error serializing object of type: " + object.getClass().getName(), ex);
 			}
 			int end = writeBuffer.position();

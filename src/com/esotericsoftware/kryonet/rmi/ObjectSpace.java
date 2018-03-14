@@ -49,17 +49,20 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.EndPoint;
 import com.esotericsoftware.kryonet.FrameworkMessage;
 import com.esotericsoftware.kryonet.KryoNetException;
+import com.esotericsoftware.kryonet.KryoSerialization;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.util.ObjectIntMap;
 import com.esotericsoftware.reflectasm.MethodAccess;
 
-/** Allows methods on objects to be invoked remotely over TCP or UDP. Objects are {@link #register(int, Object) registered} with an
- * ID. The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
+/** Allows methods on objects to be invoked remotely over TCP or UDP. Objects are {@link #register(int, Object) registered} with
+ * an ID. The remote end of connections that have been {@link #addConnection(Connection) added} are allowed to
  * {@link #getRemoteObject(Connection, int, Class) access} registered objects.
  * <p>
  * It costs at least 2 bytes more to use remote method invocation than just sending the parameters. If the method has a return
- * value which is not {@link RemoteObject#setNonBlocking(boolean) ignored}, an extra byte is written. If the type of a parameter is
- * not final (note primitives are final) then an extra byte is written for that parameter.
+ * value which is not {@link RemoteObject#setNonBlocking(boolean) ignored}, an extra byte is written. If the type of a parameter
+ * is not final (note primitives are final) then an extra byte is written for that parameter.
+ * <p>
+ * ObjectSpace requires {@link KryoSerialization}.
  * @author Nathan Sweet <misc@n4te.com> */
 public class ObjectSpace {
 	static private final int returnValueMask = 1 << 7;
@@ -108,8 +111,8 @@ public class ObjectSpace {
 		}
 	};
 
-	/** Creates an ObjectSpace with no connections. Connections must be {@link #addConnection(Connection) added} to allow the remote
-	 * end of the connections to access objects in this ObjectSpace. */
+	/** Creates an ObjectSpace with no connections. Connections must be {@link #addConnection(Connection) added} to allow the
+	 * remote end of the connections to access objects in this ObjectSpace. */
 	public ObjectSpace () {
 		synchronized (instancesLock) {
 			ObjectSpace[] instances = ObjectSpace.instances;
@@ -170,7 +173,7 @@ public class ObjectSpace {
 			connections[i].removeListener(invokeListener);
 
 		synchronized (instancesLock) {
-			ArrayList<Connection> temp = new ArrayList(Arrays.asList(instances));
+			ArrayList<ObjectSpace> temp = new ArrayList(Arrays.asList(instances));
 			temp.remove(this);
 			instances = temp.toArray(new ObjectSpace[temp.size()]);
 		}
@@ -220,9 +223,8 @@ public class ObjectSpace {
 				argString = Arrays.deepToString(invokeMethod.args);
 				argString = argString.substring(1, argString.length() - 1);
 			}
-			debug("kryonet",
-				connection + " received: " + target.getClass().getSimpleName() + "#" + invokeMethod.cachedMethod.method.getName()
-					+ "(" + argString + ")");
+			debug("kryonet", connection + " received: " + target.getClass().getSimpleName() + "#"
+				+ invokeMethod.cachedMethod.method.getName() + "(" + argString + ")");
 		}
 
 		byte responseData = invokeMethod.responseData;
@@ -241,8 +243,9 @@ public class ObjectSpace {
 				throw new KryoNetException("Error invoking method: " + cachedMethod.method.getDeclaringClass().getName() + "."
 					+ cachedMethod.method.getName(), ex);
 		} catch (Exception ex) {
-			throw new KryoNetException("Error invoking method: " + cachedMethod.method.getDeclaringClass().getName() + "."
-				+ cachedMethod.method.getName(), ex);
+			throw new KryoNetException(
+				"Error invoking method: " + cachedMethod.method.getDeclaringClass().getName() + "." + cachedMethod.method.getName(),
+				ex);
 		}
 
 		if (responseID == 0) return;
@@ -289,8 +292,8 @@ public class ObjectSpace {
 		Class[] temp = new Class[ifaces.length + 1];
 		temp[0] = RemoteObject.class;
 		System.arraycopy(ifaces, 0, temp, 1, ifaces.length);
-		return (RemoteObject)Proxy.newProxyInstance(ObjectSpace.class.getClassLoader(), temp, new RemoteInvocationHandler(
-			connection, objectID));
+		return (RemoteObject)Proxy.newProxyInstance(ObjectSpace.class.getClassLoader(), temp,
+			new RemoteInvocationHandler(connection, objectID));
 	}
 
 	/** Handles network communication when methods are invoked on a proxy. */
@@ -371,6 +374,11 @@ public class ObjectSpace {
 				} else if (name.equals("waitForLastResponse")) {
 					if (lastResponseID == null) throw new IllegalStateException("There is no last response to wait for.");
 					return waitForResponse(lastResponseID);
+				} else if (name.equals("hasLastResponse")) {
+					if (lastResponseID == null) throw new IllegalStateException("There is no last response.");
+					synchronized (this) {
+						return responseTable[lastResponseID] != null;
+					}
 				} else if (name.equals("getLastResponseID")) {
 					if (lastResponseID == null) throw new IllegalStateException("There is no last response ID.");
 					return lastResponseID;
@@ -378,6 +386,10 @@ public class ObjectSpace {
 					if (!transmitReturnValue && !transmitExceptions && nonBlocking)
 						throw new IllegalStateException("This RemoteObject is currently set to ignore all responses.");
 					return waitForResponse((Byte)args[0]);
+				} else if (name.equals("hasResponse")) {
+					synchronized (this) {
+						return responseTable[(Byte)args[0]] != null;
+					}
 				} else if (name.equals("getConnection")) {
 					return connection;
 				}
@@ -634,7 +646,8 @@ public class ObjectSpace {
 		return cachedMethods;
 	}
 
-	/** Returns the first object registered with the specified ID in any of the ObjectSpaces the specified connection belongs to. */
+	/** Returns the first object registered with the specified ID in any of the ObjectSpaces the specified connection belongs
+	 * to. */
 	static Object getRegisteredObject (Connection connection, int objectID) {
 		ObjectSpace[] instances = ObjectSpace.instances;
 		for (int i = 0, n = instances.length; i < n; i++) {
