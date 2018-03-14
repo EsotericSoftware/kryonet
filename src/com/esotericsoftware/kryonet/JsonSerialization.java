@@ -19,6 +19,8 @@
 
 package com.esotericsoftware.kryonet;
 
+import static com.esotericsoftware.minlog.Log.*;
+
 import java.io.OutputStreamWriter;
 import java.nio.ByteBuffer;
 
@@ -31,8 +33,6 @@ import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterTCP;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
-
-import static com.esotericsoftware.minlog.Log.*;
 
 public class JsonSerialization implements Serialization {
 	private final Json json = new Json();
@@ -57,7 +57,7 @@ public class JsonSerialization implements Serialization {
 		this.prettyPrint = prettyPrint;
 	}
 
-	public void write (Connection connection, ByteBuffer buffer, Object object) {
+	public synchronized void write (Connection connection, ByteBuffer buffer, Object object) {
 		byteBufferOutputStream.setByteBuffer(buffer);
 		int start = buffer.position();
 		try {
@@ -81,7 +81,7 @@ public class JsonSerialization implements Serialization {
 		}
 	}
 
-	public Object read (Connection connection, ByteBuffer buffer) {
+	public synchronized Object read (Connection connection, ByteBuffer buffer) {
 		byteBufferInputStream.setByteBuffer(buffer);
 		return json.fromJson(Object.class, byteBufferInputStream);
 	}

@@ -55,7 +55,8 @@ public interface EndPoint extends Runnable {
 	 * code will be run on the update thread. */
 	public Thread getUpdateThread ();
 
-	/** Gets the Kryo instance that will be used to serialize and deserialize objects. This is only valid if
-	 * {@link KryoSerialization} is being used, which is the default. */
+	/** Gets the Kryo instance that will be used to serialize and deserialize objects. Returns null if {@link KryoSerialization} is
+	 * not being used.
+	 * @return May be null. */
 	public Kryo getKryo ();
 }

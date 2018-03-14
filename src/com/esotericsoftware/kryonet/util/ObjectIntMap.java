@@ -19,9 +19,9 @@
 
 package com.esotericsoftware.kryonet.util;
 
-import com.esotericsoftware.kryo.util.ObjectMap;
-
 import java.util.Random;
+
+import com.esotericsoftware.kryo.util.ObjectMap;
 
 /** An unordered map where the values are ints. This implementation is a cuckoo hash map using 3 hashes, random walking, and a
  * small stash for problematic keys. Null keys are not allowed. No allocation is done except when growing the table size. <br>
@@ -401,9 +401,10 @@ public class ObjectIntMap<K> {
 	/** Returns true if the specified value is in the map. Note this traverses the entire map and compares every value, which may be
 	 * an expensive operation. */
 	public boolean containsValue (int value) {
+		K[] keyTable = this.keyTable;
 		int[] valueTable = this.valueTable;
 		for (int i = capacity + stashSize; i-- > 0;)
-			if (valueTable[i] == value) return true;
+			if (keyTable[i] != null && valueTable[i] == value) return true;
 		return false;
 	}
 
@@ -430,9 +431,10 @@ public class ObjectIntMap<K> {
 	/** Returns the key for the specified value, or null if it is not in the map. Note this traverses the entire map and compares
 	 * every value, which may be an expensive operation. */
 	public K findKey (int value) {
+		K[] keyTable = this.keyTable;
 		int[] valueTable = this.valueTable;
 		for (int i = capacity + stashSize; i-- > 0;)
-			if (valueTable[i] == value) return keyTable[i];
+			if (keyTable[i] != null && valueTable[i] == value) return keyTable[i];
 		return null;
 	}
 
