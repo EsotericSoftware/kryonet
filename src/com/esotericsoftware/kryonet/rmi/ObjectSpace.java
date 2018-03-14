@@ -581,81 +581,86 @@ public class ObjectSpace {
 	}
 
 	static CachedMethod[] getMethods (Kryo kryo, Class type) {
-		HashMap<Class, CachedMethod[]> cache = methodCache.get(kryo);
-		if (cache == null) {
-			cache = new HashMap<Class, CachedMethod[]>();
-			methodCache.put(kryo, cache);
+		HashMap<Class, CachedMethod[]> cache;
+		synchronized (methodCache) {
+			cache = methodCache.get(kryo);
+			if (cache == null) {
+				cache = new HashMap<Class, CachedMethod[]>();
+				methodCache.put(kryo, cache);
+			}
 		}
-		CachedMethod[] cachedMethods = cache.get(type);
-		if (cachedMethods != null) return cachedMethods;
+		synchronized (cache) {
+			CachedMethod[] cachedMethods = cache.get(type);
+			if (cachedMethods != null) return cachedMethods;
 
-		ArrayList<Method> allMethods = new ArrayList();
-		Class nextClass = type;
-		while (nextClass != null) {
-			Collections.addAll(allMethods, nextClass.getDeclaredMethods());
-			nextClass = nextClass.getSuperclass();
-			if (nextClass == Object.class) break;
-		}
-		ArrayList<Method> methods = new ArrayList(Math.max(1, allMethods.size()));
-		for (int i = 0, n = allMethods.size(); i < n; i++) {
-			Method method = allMethods.get(i);
-			int modifiers = method.getModifiers();
-			if (Modifier.isStatic(modifiers)) continue;
-			if (Modifier.isPrivate(modifiers)) continue;
-			if (method.isSynthetic()) continue;
-			methods.add(method);
-		}
-		Collections.sort(methods, new Comparator<Method>() {
-			public int compare (Method o1, Method o2) {
-				// Methods are sorted so they can be represented as an index.
-				int diff = o1.getName().compareTo(o2.getName());
-				if (diff != 0) return diff;
-				Class[] argTypes1 = o1.getParameterTypes();
-				Class[] argTypes2 = o2.getParameterTypes();
-				if (argTypes1.length > argTypes2.length) return 1;
-				if (argTypes1.length < argTypes2.length) return -1;
-				for (int i = 0; i < argTypes1.length; i++) {
-					diff = argTypes1[i].getName().compareTo(argTypes2[i].getName());
+			ArrayList<Method> allMethods = new ArrayList();
+			Class nextClass = type;
+			while (nextClass != null) {
+				Collections.addAll(allMethods, nextClass.getDeclaredMethods());
+				nextClass = nextClass.getSuperclass();
+				if (nextClass == Object.class) break;
+			}
+			ArrayList<Method> methods = new ArrayList(Math.max(1, allMethods.size()));
+			for (int i = 0, n = allMethods.size(); i < n; i++) {
+				Method method = allMethods.get(i);
+				int modifiers = method.getModifiers();
+				if (Modifier.isStatic(modifiers)) continue;
+				if (Modifier.isPrivate(modifiers)) continue;
+				if (method.isSynthetic()) continue;
+				methods.add(method);
+			}
+			Collections.sort(methods, new Comparator<Method>() {
+				public int compare(Method o1, Method o2) {
+					// Methods are sorted so they can be represented as an index.
+					int diff = o1.getName().compareTo(o2.getName());
 					if (diff != 0) return diff;
+					Class[] argTypes1 = o1.getParameterTypes();
+					Class[] argTypes2 = o2.getParameterTypes();
+					if (argTypes1.length > argTypes2.length) return 1;
+					if (argTypes1.length < argTypes2.length) return -1;
+					for (int i = 0; i < argTypes1.length; i++) {
+						diff = argTypes1[i].getName().compareTo(argTypes2[i].getName());
+						if (diff != 0) return diff;
+					}
+					throw new RuntimeException("Two methods with same signature!"); // Impossible.
 				}
-				throw new RuntimeException("Two methods with same signature!"); // Impossible.
-			}
-		});
+			});
 
-		Object methodAccess = null;
-		if (asm && !Util.isAndroid && Modifier.isPublic(type.getModifiers())) methodAccess = MethodAccess.get(type);
+			Object methodAccess = null;
+			if (asm && !Util.isAndroid && Modifier.isPublic(type.getModifiers())) methodAccess = MethodAccess.get(type);
 
-		int n = methods.size();
-		cachedMethods = new CachedMethod[n];
-		for (int i = 0; i < n; i++) {
-			Method method = methods.get(i);
-			Class[] parameterTypes = method.getParameterTypes();
+			int n = methods.size();
+			cachedMethods = new CachedMethod[n];
+			for (int i = 0; i < n; i++) {
+				Method method = methods.get(i);
+				Class[] parameterTypes = method.getParameterTypes();
 
-			CachedMethod cachedMethod = null;
-			if (methodAccess != null) {
-				try {
-					AsmCachedMethod asmCachedMethod = new AsmCachedMethod();
-					asmCachedMethod.methodAccessIndex = ((MethodAccess)methodAccess).getIndex(method.getName(), parameterTypes);
-					asmCachedMethod.methodAccess = (MethodAccess)methodAccess;
-					cachedMethod = asmCachedMethod;
-				} catch (RuntimeException ignored) {
+				CachedMethod cachedMethod = null;
+				if (methodAccess != null) {
+					try {
+						AsmCachedMethod asmCachedMethod = new AsmCachedMethod();
+						asmCachedMethod.methodAccessIndex = ((MethodAccess) methodAccess).getIndex(method.getName(), parameterTypes);
+						asmCachedMethod.methodAccess = (MethodAccess) methodAccess;
+						cachedMethod = asmCachedMethod;
+					} catch (RuntimeException ignored) {
+					}
 				}
+
+				if (cachedMethod == null) cachedMethod = new CachedMethod();
+				cachedMethod.method = method;
+				cachedMethod.methodClassID = kryo.getRegistration(method.getDeclaringClass()).getId();
+				cachedMethod.methodIndex = i;
+
+				// Store the serializer for each final parameter.
+				cachedMethod.serializers = new Serializer[parameterTypes.length];
+				for (int ii = 0, nn = parameterTypes.length; ii < nn; ii++)
+					if (kryo.isFinal(parameterTypes[ii])) cachedMethod.serializers[ii] = kryo.getSerializer(parameterTypes[ii]); // getSerializer may fail?
+
+				cachedMethods[i] = cachedMethod;
 			}
-
-			if (cachedMethod == null) cachedMethod = new CachedMethod();
-			cachedMethod.method = method;
-			cachedMethod.methodClassID = kryo.getRegistration(method.getDeclaringClass()).getId();
-			cachedMethod.methodIndex = i;
-
-			// Store the serializer for each final parameter.
-			cachedMethod.serializers = new Serializer[parameterTypes.length];
-			for (int ii = 0, nn = parameterTypes.length; ii < nn; ii++)
-				if (kryo.isFinal(parameterTypes[ii])) cachedMethod.serializers[ii] = kryo.getSerializer(parameterTypes[ii]);
-
-			cachedMethods[i] = cachedMethod;
+			cache.put(type, cachedMethods);
+			return cachedMethods;
 		}
-		cache.put(type, cachedMethods);
-		return cachedMethods;
 	}
 
 	/** Returns the first object registered with the specified ID in any of the ObjectSpaces the specified connection belongs to. */
