@@ -21,7 +21,7 @@ package com.esotericsoftware.kryonet;
 
 import java.nio.ByteBuffer;
 
-/** Controls how objects are transmitted over the network. */
+/** Controls how objects are transmitted over the network. All methods must be synchronized or otherwise thread safe. */
 public interface Serialization {
 	/** @param connection May be null. */
 	public void write (Connection connection, ByteBuffer buffer, Object object);
