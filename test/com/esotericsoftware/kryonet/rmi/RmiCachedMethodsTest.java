@@ -33,9 +33,8 @@ import java.io.IOException;
  *
  * Even with repeat, this test is likely to be false positive.
  *
- * Confirmed tho problems:
- * with concurrent usage of СlassКesolver (ClassCastException on client side and BufferUnderflow on server side)
- * and with concurrent blocking invocations (TimeoutException while waiting for response) due to incorrect locking.
+ * Problem with concurrent usage of СlassResolver:
+ * ClassCastException or TimeoutException on client side and ClassCastException or BufferUnderflow on server side
  */
 public class RmiCachedMethodsTest extends KryoNetTestCase {
     static private int SERVER_TEST_OBJECT_ID = 13;
@@ -93,17 +92,7 @@ public class RmiCachedMethodsTest extends KryoNetTestCase {
         for (int i = 0; i < PARALLELISM; i++) threads[i] = new Thread(test);
         for (Thread thread : threads) thread.start();
 
-        try {
-            Thread.sleep(200);
-            boolean finished = true;
-            while(!finished) {
-                finished = true;
-                for (Thread thread : threads)
-                    if (thread.isAlive())
-                        finished = false;
-            }
-            stopEndPoints();
-        } catch (InterruptedException ex) {}
+        stopEndPoints(500);
     }
 
     static private class TestRunnable implements Runnable {
