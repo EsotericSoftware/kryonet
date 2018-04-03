@@ -279,7 +279,9 @@ public class RmiTest extends KryoNetTestCase {
 									Log.debug("Test", " Before call slow() " + ii);
 									try {
 										results[ii] = test.slow(ii, ii < 20 ? 1300 : 700);
-									} catch (TimeoutException ex) {}
+									} catch (TimeoutException ex) {
+										results[ii] = -1;
+									}
 									Log.debug("Test", "After call slow() " + ii);
 								}
 							});
