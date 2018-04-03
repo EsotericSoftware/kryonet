@@ -263,7 +263,7 @@ public class RmiTest extends KryoNetTestCase {
 		startEndPoint(client);
 
 		final Executor slowCallExecutor = Executors.newCachedThreadPool();
-		final int[] results = new int[70];
+		final int[] results = new int[120];
 
 		client.addListener(new Listener() {
 			public void connected (final Connection connection) {
@@ -271,19 +271,21 @@ public class RmiTest extends KryoNetTestCase {
 					public void run () {
 						final TestObject test = ObjectSpace.getRemoteObject(connection, 42, TestObject.class);
 						test.other();
-						((RemoteObject)test).setResponseTimeout(3000);
-						for (int i = 0; i < 70; i++) {
+						((RemoteObject)test).setResponseTimeout(1000);
+						for (int i = 0; i < 120; i++) {
 							final int ii = i;
 							slowCallExecutor.execute(new Runnable() {
 								public void run() {
 									Log.debug("Test", " Before call slow() " + ii);
-									results[ii] = test.slow(ii, 2000);
+									try {
+										results[ii] = test.slow(ii, ii < 20 ? 1300 : 700);
+									} catch (TimeoutException ex) {}
 									Log.debug("Test", "After call slow() " + ii);
 								}
 							});
 							RmiTest.sleep(10);
 						}
-						RmiTest.sleep(3000);
+						RmiTest.sleep(2000);
 						connection.sendTCP(new MessageWithTestObject());
 					}
 				}.start();
@@ -293,7 +295,8 @@ public class RmiTest extends KryoNetTestCase {
 
 		waitForThreads();
 
-		for (int i = 0; i < 70; i++) {
+		// expecting first few request to be slow, but other should be fine
+		for (int i = 20; i < 120; i++) {
 			assertEquals(i, results[i]);
 		}
 	}
