@@ -68,7 +68,7 @@ public class ObjectSpace {
 	static private final int returnValueMask = 1 << 15;
 	static private final int returnExceptionMask = 1 << 14;
 	static private final int responseIdMask = 0xffff & ~returnValueMask & ~returnExceptionMask;
-	static private final int responseTableMask = 0xff;
+	static private final int responseTableMask = 0x3f; // 64 parallel remote invocations allowed
 
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
