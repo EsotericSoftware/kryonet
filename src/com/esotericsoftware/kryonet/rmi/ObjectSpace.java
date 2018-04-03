@@ -68,7 +68,7 @@ public class ObjectSpace {
 	static private final int returnValueMask = 1 << 15;
 	static private final int returnExceptionMask = 1 << 14;
 	static private final int responseIdMask = 0xffff & ~returnValueMask & ~returnExceptionMask;
-	static private final int responseTableSize = 64;
+	static private final int responseTableMask = 0xff;
 
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
@@ -314,8 +314,8 @@ public class ObjectSpace {
 
 		final ReentrantLock lock = new ReentrantLock();
 		final Condition responseCondition = lock.newCondition();
-		final InvokeMethodResult[] responseTable = new InvokeMethodResult[responseTableSize];
-		final boolean[] pendingResponses = new boolean[responseTableSize];
+		final InvokeMethodResult[] responseTable = new InvokeMethodResult[responseTableMask + 1];
+		final short[] pendingResponses = new short[responseTableMask + 1];
 		final Object invokeLocker = new Object();
 
 		public RemoteInvocationHandler (Connection connection, final int objectID) {
@@ -331,8 +331,8 @@ public class ObjectSpace {
 
 					int responseID = invokeMethodResult.responseID;
 					synchronized (this) {
-						if (pendingResponses[responseID % responseTableSize]) {
-							responseTable[responseID % responseTableSize] = invokeMethodResult;
+						if (pendingResponses[responseID & responseTableMask] == responseID) {
+							responseTable[responseID & responseTableMask] = invokeMethodResult;
 						}
 					}
 
@@ -382,7 +382,7 @@ public class ObjectSpace {
 				} else if (name.equals("hasLastResponse")) {
 					if (lastResponseID == null) throw new IllegalStateException("There is no last response.");
 					synchronized (this) {
-						return responseTable[lastResponseID % responseTableSize] != null;
+						return responseTable[lastResponseID & responseTableMask] != null;
 					}
 				} else if (name.equals("getLastResponseID")) {
 					if (lastResponseID == null) throw new IllegalStateException("There is no last response ID.");
@@ -393,7 +393,7 @@ public class ObjectSpace {
 					return waitForResponse((Short)args[0]);
 				} else if (name.equals("hasResponse")) {
 					synchronized (this) {
-						return responseTable[((Short)args[0]) % responseTableSize] != null;
+						return responseTable[((Short)args[0]) & responseTableMask] != null;
 					}
 				} else if (name.equals("getConnection")) {
 					return connection;
@@ -424,13 +424,13 @@ public class ObjectSpace {
 				synchronized (invokeLocker) {
 					while (true) {
 						synchronized (this) {
-							if (totalPendingResponsesCnt < responseTableSize) {
+							if (totalPendingResponsesCnt < responseTableMask + 1) {
 								// Find the first non-pending responseID.
 								do {
 									responseID = nextResponseId++;
 									if (nextResponseId > responseIdMask) nextResponseId = 1;
-								} while (pendingResponses[responseID % responseTableSize]);
-								pendingResponses[responseID % responseTableSize] = true;
+								} while (pendingResponses[responseID & responseTableMask] != 0);
+								pendingResponses[responseID & responseTableMask] = responseID;
 								totalPendingResponsesCnt++;
 								break;
 							}
@@ -485,10 +485,10 @@ public class ObjectSpace {
 				throw new TimeoutException("Response timed out: " + method.getDeclaringClass().getName() + "." + method.getName());
 			} finally {
 				synchronized (this) {
-					if (pendingResponses[responseID % responseTableSize]) {
+					if (pendingResponses[responseID & responseTableMask] != 0) {
 						totalPendingResponsesCnt--;
-						pendingResponses[responseID % responseTableSize] = false;
-						responseTable[responseID % responseTableSize] = null;
+						pendingResponses[responseID & responseTableMask] = 0;
+						responseTable[responseID & responseTableMask] = null;
 					}
 				}
 			}
@@ -504,7 +504,7 @@ public class ObjectSpace {
 				long remaining = endTime - System.currentTimeMillis();
 				InvokeMethodResult invokeMethodResult;
 				synchronized (this) {
-					invokeMethodResult = responseTable[responseID % responseTableSize];
+					invokeMethodResult = responseTable[responseID & responseTableMask];
 				}
 				if (invokeMethodResult != null) {
 					lastResponseID = null;
