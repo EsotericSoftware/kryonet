@@ -359,7 +359,7 @@ public class RmiTest extends KryoNetTestCase {
 				assertEquals(other, remoteObject.waitForLastResponse());
 
 				assertEquals(0f, test.other());
-				byte responseID = remoteObject.getLastResponseID();
+				short responseID = remoteObject.getLastResponseID();
 				assertEquals(other, remoteObject.waitForResponse(responseID));
 /*
 				// Non-blocking call that errors out

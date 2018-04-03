@@ -65,9 +65,10 @@ import com.esotericsoftware.reflectasm.MethodAccess;
  * ObjectSpace requires {@link KryoSerialization}.
  * @author Nathan Sweet <misc@n4te.com> */
 public class ObjectSpace {
-	static private final int returnValueMask = 1 << 7;
-	static private final int returnExceptionMask = 1 << 6;
-	static private final int responseIdMask = 0xff & ~returnValueMask & ~returnExceptionMask;
+	static private final int returnValueMask = 1 << 15;
+	static private final int returnExceptionMask = 1 << 14;
+	static private final int responseIdMask = 0xffff & ~returnValueMask & ~returnExceptionMask;
+	static private final int responseTableSize = 64;
 
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
@@ -227,7 +228,7 @@ public class ObjectSpace {
 				+ invokeMethod.cachedMethod.method.getName() + "(" + argString + ")");
 		}
 
-		byte responseData = invokeMethod.responseData;
+		short responseData = invokeMethod.responseData;
 		boolean transmitReturnValue = (responseData & returnValueMask) == returnValueMask;
 		boolean transmitExceptions = (responseData & returnExceptionMask) == returnExceptionMask;
 		int responseID = responseData & responseIdMask;
@@ -252,7 +253,7 @@ public class ObjectSpace {
 
 		InvokeMethodResult invokeMethodResult = new InvokeMethodResult();
 		invokeMethodResult.objectID = invokeMethod.objectID;
-		invokeMethodResult.responseID = (byte)responseID;
+		invokeMethodResult.responseID = (short)responseID;
 
 		// Do not return non-primitives if transmitReturnValue is false.
 		if (!transmitReturnValue && !invokeMethod.cachedMethod.method.getReturnType().isPrimitive()) {
@@ -306,15 +307,15 @@ public class ObjectSpace {
 		private boolean transmitExceptions = true;
 		private boolean remoteToString;
 		private boolean udp;
-		private Byte lastResponseID;
-		private byte nextResponseId = 1;
+		private Short lastResponseID;
+		private short nextResponseId = 1;
 		private Listener responseListener;
 		private volatile int totalPendingResponsesCnt = 0;
 
 		final ReentrantLock lock = new ReentrantLock();
 		final Condition responseCondition = lock.newCondition();
-		final InvokeMethodResult[] responseTable = new InvokeMethodResult[responseIdMask+1];
-		final boolean[] pendingResponses = new boolean[responseIdMask+1];
+		final InvokeMethodResult[] responseTable = new InvokeMethodResult[responseTableSize];
+		final boolean[] pendingResponses = new boolean[responseTableSize];
 		final Object invokeLocker = new Object();
 
 		public RemoteInvocationHandler (Connection connection, final int objectID) {
@@ -330,7 +331,9 @@ public class ObjectSpace {
 
 					int responseID = invokeMethodResult.responseID;
 					synchronized (this) {
-						if (pendingResponses[responseID]) responseTable[responseID] = invokeMethodResult;
+						if (pendingResponses[responseID % responseTableSize]) {
+							responseTable[responseID % responseTableSize] = invokeMethodResult;
+						}
 					}
 
 					lock.lock();
@@ -379,7 +382,7 @@ public class ObjectSpace {
 				} else if (name.equals("hasLastResponse")) {
 					if (lastResponseID == null) throw new IllegalStateException("There is no last response.");
 					synchronized (this) {
-						return responseTable[lastResponseID] != null;
+						return responseTable[lastResponseID % responseTableSize] != null;
 					}
 				} else if (name.equals("getLastResponseID")) {
 					if (lastResponseID == null) throw new IllegalStateException("There is no last response ID.");
@@ -387,10 +390,10 @@ public class ObjectSpace {
 				} else if (name.equals("waitForResponse")) {
 					if (!transmitReturnValue && !transmitExceptions && nonBlocking)
 						throw new IllegalStateException("This RemoteObject is currently set to ignore all responses.");
-					return waitForResponse((Byte)args[0]);
+					return waitForResponse((Short)args[0]);
 				} else if (name.equals("hasResponse")) {
 					synchronized (this) {
-						return responseTable[(Byte)args[0]] != null;
+						return responseTable[((Short)args[0]) % responseTableSize] != null;
 					}
 				} else if (name.equals("getConnection")) {
 					return connection;
@@ -416,18 +419,18 @@ public class ObjectSpace {
 
 			// A invocation doesn't need a response if it's async and no return values or exceptions are wanted back.
 			boolean needsResponse = !udp && (transmitReturnValue || transmitExceptions || !nonBlocking);
-			byte responseID = 0;
+			short responseID = 0;
 			if (needsResponse) {
 				synchronized (invokeLocker) {
 					while (true) {
 						synchronized (this) {
-							if (totalPendingResponsesCnt < responseIdMask) {
+							if (totalPendingResponsesCnt < responseTableSize) {
 								// Find the first non-pending responseID.
 								do {
 									responseID = nextResponseId++;
 									if (nextResponseId > responseIdMask) nextResponseId = 1;
-								} while (pendingResponses[responseID]);
-								pendingResponses[responseID] = true;
+								} while (pendingResponses[responseID % responseTableSize]);
+								pendingResponses[responseID % responseTableSize] = true;
 								totalPendingResponsesCnt++;
 								break;
 							}
@@ -439,7 +442,7 @@ public class ObjectSpace {
 					}
 				}
 				// Pack other data into the high bits.
-				byte responseData = responseID;
+				short responseData = responseID;
 				if (transmitReturnValue) responseData |= returnValueMask;
 				if (transmitExceptions) responseData |= returnExceptionMask;
 				invokeMethod.responseData = responseData;
@@ -457,7 +460,7 @@ public class ObjectSpace {
 					+ "#" + method.getName() + "(" + argString + ") (" + length + ")");
 			}
 
-			lastResponseID = (byte)(invokeMethod.responseData & responseIdMask);
+			lastResponseID = (short)(invokeMethod.responseData & responseIdMask);
 			if (nonBlocking || udp) {
 				Class returnType = method.getReturnType();
 				if (returnType.isPrimitive()) {
@@ -482,16 +485,16 @@ public class ObjectSpace {
 				throw new TimeoutException("Response timed out: " + method.getDeclaringClass().getName() + "." + method.getName());
 			} finally {
 				synchronized (this) {
-					if (pendingResponses[responseID]) {
+					if (pendingResponses[responseID % responseTableSize]) {
 						totalPendingResponsesCnt--;
-						pendingResponses[responseID] = false;
-						responseTable[responseID] = null;
+						pendingResponses[responseID % responseTableSize] = false;
+						responseTable[responseID % responseTableSize] = null;
 					}
 				}
 			}
 		}
 
-		private Object waitForResponse (byte responseID) {
+		private Object waitForResponse (short responseID) {
 			if (connection.getEndPoint().getUpdateThread() == Thread.currentThread())
 				throw new IllegalStateException("Cannot wait for an RMI response on the connection's update thread.");
 
@@ -501,7 +504,7 @@ public class ObjectSpace {
 				long remaining = endTime - System.currentTimeMillis();
 				InvokeMethodResult invokeMethodResult;
 				synchronized (this) {
-					invokeMethodResult = responseTable[responseID];
+					invokeMethodResult = responseTable[responseID % responseTableSize];
 				}
 				if (invokeMethodResult != null) {
 					lastResponseID = null;
@@ -536,12 +539,12 @@ public class ObjectSpace {
 		// The top bits of the ID indicate if the remote invocation should respond with return values and exceptions, respectively.
 		// The remaining bites are a counter. This means up to 63 responses can be stored before undefined behavior occurs due to
 		// possible duplicate IDs. A response data of 0 means to not respond.
-		public byte responseData;
+		public short responseData;
 
 		public void write (Kryo kryo, Output output) {
 			output.writeInt(objectID, true);
 			output.writeInt(cachedMethod.methodClassID, true);
-			output.writeByte(cachedMethod.methodIndex);
+			output.writeShort(cachedMethod.methodIndex);
 
 			Serializer[] serializers = cachedMethod.serializers;
 			Object[] args = this.args;
@@ -553,7 +556,7 @@ public class ObjectSpace {
 					kryo.writeClassAndObject(output, args[i]);
 			}
 
-			output.writeByte(responseData);
+			output.writeShort(responseData);
 		}
 
 		public void read (Kryo kryo, Input input) {
@@ -562,7 +565,7 @@ public class ObjectSpace {
 			int methodClassID = input.readInt(true);
 			Class methodClass = kryo.getRegistration(methodClassID).getType();
 
-			byte methodIndex = input.readByte();
+			short methodIndex = input.readShort();
 			try {
 				cachedMethod = getMethods(kryo, methodClass)[methodIndex];
 			} catch (IndexOutOfBoundsException ex) {
@@ -581,14 +584,14 @@ public class ObjectSpace {
 					args[i] = kryo.readClassAndObject(input);
 			}
 
-			responseData = input.readByte();
+			responseData = input.readShort();
 		}
 	}
 
 	/** Internal message to return the result of a remotely invoked method. */
 	static public class InvokeMethodResult implements FrameworkMessage {
 		public int objectID;
-		public byte responseID;
+		public short responseID;
 		public Object result;
 	}
 
