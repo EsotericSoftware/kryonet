@@ -307,7 +307,7 @@ public class ObjectSpace {
 		private boolean transmitExceptions = true;
 		private boolean remoteToString;
 		private boolean udp;
-		private Short lastResponseID;
+		private volatile short lastResponseID = 0;
 		private short nextResponseId = 1;
 		private Listener responseListener;
 		private volatile int totalPendingResponsesCnt = 0;
@@ -377,16 +377,19 @@ public class ObjectSpace {
 					remoteToString = (Boolean)args[0];
 					return null;
 				} else if (name.equals("waitForLastResponse")) {
-					if (lastResponseID == null) throw new IllegalStateException("There is no last response to wait for.");
-					return waitForResponse(lastResponseID);
+					short responseID = lastResponseID;
+					if (responseID == 0) throw new IllegalStateException("There is no last response to wait for.");
+					return waitForResponse(responseID);
 				} else if (name.equals("hasLastResponse")) {
-					if (lastResponseID == null) throw new IllegalStateException("There is no last response.");
+					short responseID = lastResponseID;
+					if (responseID == 0) throw new IllegalStateException("There is no last response.");
 					synchronized (this) {
-						return responseTable[lastResponseID & responseTableMask] != null;
+						return responseTable[responseID & responseTableMask] != null;
 					}
 				} else if (name.equals("getLastResponseID")) {
-					if (lastResponseID == null) throw new IllegalStateException("There is no last response ID.");
-					return lastResponseID;
+					short responseID = lastResponseID;
+					if (responseID == 0) throw new IllegalStateException("There is no last response ID.");
+					return responseID;
 				} else if (name.equals("waitForResponse")) {
 					if (!transmitReturnValue && !transmitExceptions && nonBlocking)
 						throw new IllegalStateException("This RemoteObject is currently set to ignore all responses.");
@@ -460,7 +463,7 @@ public class ObjectSpace {
 					+ "#" + method.getName() + "(" + argString + ") (" + length + ")");
 			}
 
-			lastResponseID = (short)(invokeMethod.responseData & responseIdMask);
+			lastResponseID = responseID;
 			if (nonBlocking || udp) {
 				Class returnType = method.getReturnType();
 				if (returnType.isPrimitive()) {
@@ -476,7 +479,7 @@ public class ObjectSpace {
 				return null;
 			}
 			try {
-				Object result = waitForResponse(lastResponseID);
+				Object result = waitForResponse(responseID);
 				if (result != null && result instanceof Exception)
 					throw (Exception)result;
 				else
@@ -507,7 +510,7 @@ public class ObjectSpace {
 					invokeMethodResult = responseTable[responseID & responseTableMask];
 				}
 				if (invokeMethodResult != null) {
-					lastResponseID = null;
+					lastResponseID = 0;
 					return invokeMethodResult.result;
 				} else {
 					if (remaining <= 0) throw new TimeoutException("Response timed out.");
