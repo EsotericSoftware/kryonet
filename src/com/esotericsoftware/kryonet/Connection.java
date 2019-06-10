@@ -272,27 +272,8 @@ public class Connection {
 				sendTCP(ping);
 			}
 		} else if (object instanceof RegisteredClassesInfo) {
-			RegisteredClassesInfo info = (RegisteredClassesInfo) object;
-			String classes = getRegisteredClasses(endPoint.getKryo());
-			if (info.classes != null && classes != null && !info.classes.equals(classes)) {
-				String[] otherClasses = info.classes.split(";");
-				String[] thisClasses = classes.split(";");
-				for(int i = 0; i < otherClasses.length; i++) {
-					if (thisClasses.length == i) {
-						Log.error("kryonet", "Connection.notifyReceived. Registered classes mismatch. Not all other classes are registered. First unregistered class= '" + otherClasses[i] + "'");
-						throw new IOException("Registered classes mismatch. Not all other classes are registered. First unregistered class= '" + otherClasses[i] + "'");
-					} else if (!otherClasses[i].equals(thisClasses[i])) {
-						Log.error("kryonet", "Connection.notifyReceived. Registered classes mismatch. First difference at index " + i + " this class = '" + thisClasses[i] + "' other class = '" + otherClasses[i] + "'");
-						throw new IOException("Registered classes mismatch. First difference at index " + i + " this class = '" + thisClasses[i] + "' other class = '" + otherClasses[i] + "'");
-					}
-				}
-				if (thisClasses.length > otherClasses.length) {
-					Log.error("kryonet", "Connection.notifyReceived. Registered classes mismatch. Not all this classes are registered. First unregistered class= '" + thisClasses[otherClasses.length] + "'");
-					throw new IOException("Registered classes mismatch. Not all this classes are registered. First unregistered class= '" + thisClasses[otherClasses.length] + "'");
-				} else {
-					Log.error("kryonet", "Connection.notifyReceived. It looks like registered classes mismatch, but no difference found");
-				}
-			}
+			if (endPoint.checkRegisteredClasses())
+				checkRegisteredClasses((RegisteredClassesInfo) object);
 			return;
 		}
 		Listener[] listeners = this.listeners;
@@ -382,5 +363,28 @@ public class Connection {
 			buffer.append(registration.getType().getCanonicalName());
 		}
 		return buffer.toString();
+	}
+
+	private void checkRegisteredClasses(RegisteredClassesInfo info) throws IOException {
+		String classes = getRegisteredClasses(endPoint.getKryo());
+		if (info.classes != null && classes != null && !info.classes.equals(classes)) {
+			String[] otherClasses = info.classes.split(";");
+			String[] thisClasses = classes.split(";");
+			for(int i = 0; i < otherClasses.length; i++) {
+				if (thisClasses.length == i) {
+					Log.error("kryonet", "Connection.notifyReceived. Registered classes mismatch. Not all other classes are registered. First unregistered class= '" + otherClasses[i] + "'");
+					throw new IOException("Registered classes mismatch. Not all other classes are registered. First unregistered class= '" + otherClasses[i] + "'");
+				} else if (!otherClasses[i].equals(thisClasses[i])) {
+					Log.error("kryonet", "Connection.notifyReceived. Registered classes mismatch. First difference at index " + i + " this class = '" + thisClasses[i] + "' other class = '" + otherClasses[i] + "'");
+					throw new IOException("Registered classes mismatch. First difference at index " + i + " this class = '" + thisClasses[i] + "' other class = '" + otherClasses[i] + "'");
+				}
+			}
+			if (thisClasses.length > otherClasses.length) {
+				Log.error("kryonet", "Connection.notifyReceived. Registered classes mismatch. Not all this classes are registered. First unregistered class= '" + thisClasses[otherClasses.length] + "'");
+				throw new IOException("Registered classes mismatch. Not all this classes are registered. First unregistered class= '" + thisClasses[otherClasses.length] + "'");
+			} else {
+				Log.error("kryonet", "Connection.notifyReceived. It looks like registered classes mismatch, but no difference found");
+			}
+		}
 	}
 }

@@ -37,12 +37,14 @@ public class CheckRegisteredClassesTest extends KryoNetTestCase {
 	private void test(Class serverClass, Class clientClass, boolean isEqual) throws IOException, InterruptedException {
 		Log.info("test. serverClass=" + serverClass + " clientClass=" + clientClass);
 		final Server server = new Server();
+		server.setCheckRegisteredClasses(true);
 		if (serverClass != null)
 			server.getKryo().register(serverClass);
 		startEndPoint(server);
 		server.bind(tcpPort);
 
 		final Client client = new Client();
+		client.setCheckRegisteredClasses(true);
 		if (clientClass != null)
 			client.getKryo().register(clientClass);
 		startEndPoint(client);
