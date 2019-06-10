@@ -9,7 +9,7 @@
 
     <groupId>com.esotericsoftware</groupId>
     <artifactId>kryonet</artifactId>
-    <version>2.22.0-RC1-dsx</version>
+    <version>2.22.0-RC1-dsx-2</version>
     <packaging>jar</packaging>
 
     <name>kryonet</name>

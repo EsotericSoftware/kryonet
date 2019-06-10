@@ -21,38 +21,41 @@ package com.esotericsoftware.kryonet;
 
 import com.esotericsoftware.minlog.Log;
 
-/** Marker interface to denote that a message is used by the Ninja framework and is generally invisible to the developer. Eg, these
- * messages are only logged at the {@link Log#LEVEL_TRACE} level.
- * @author Nathan Sweet <misc@n4te.com> */
-public interface FrameworkMessage {
-	static final FrameworkMessage.KeepAlive keepAlive = new KeepAlive();
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 
-	/** Internal message to give the client the server assigned connection ID. */
-	static public class RegisterTCP implements FrameworkMessage {
-		public int connectionID;
+public class CheckRegisteredClassesTest extends KryoNetTestCase {
+
+	public void testRegisteredClassesCheck () throws IOException, InterruptedException {
+		test(null, null, true);
+		test(null, BigInteger.class, false);
+		test(BigInteger.class, BigInteger.class, true);
+		test(BigInteger.class, BigDecimal.class, false);
 	}
 
-	/** Internal message to give the server the client's UDP port. */
-	static public class RegisterUDP implements FrameworkMessage {
-		public int connectionID;
-	}
+	private void test(Class serverClass, Class clientClass, boolean isEqual) throws IOException, InterruptedException {
+		Log.info("test. serverClass=" + serverClass + " clientClass=" + clientClass);
+		final Server server = new Server();
+		if (serverClass != null)
+			server.getKryo().register(serverClass);
+		startEndPoint(server);
+		server.bind(tcpPort);
 
-	/** Internal message to keep connections alive. */
-	static public class KeepAlive implements FrameworkMessage {
-	}
+		final Client client = new Client();
+		if (clientClass != null)
+			client.getKryo().register(clientClass);
+		startEndPoint(client);
+		client.addListener(new Listener() {
+			public void connected (Connection connection) {
+			}
 
-	/** Internal message to discover running servers. */
-	static public class DiscoverHost implements FrameworkMessage {
-	}
-
-	/** Internal message to determine round trip time. */
-	static public class Ping implements FrameworkMessage {
-		public int id;
-		public boolean isReply;
-	}
-
-	/** Internal message to check are registered classes on client and server side equal. */
-	static public class RegisteredClassesInfo implements FrameworkMessage {
-		public String classes;
+			public void received (Connection connection, Object object) {
+			}
+		});
+		client.connect(5000, host, tcpPort);
+		Thread.sleep(5000);
+		assertEquals(isEqual, client.isConnected);
+		waitForThreads(5000);
 	}
 }

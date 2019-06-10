@@ -431,6 +431,7 @@ public class Server implements EndPoint {
 			RegisterTCP registerConnection = new RegisterTCP();
 			registerConnection.connectionID = id;
 			connection.sendTCP(registerConnection);
+			connection.sendRegisteredClasses();
 
 			if (udp == null) connection.notifyConnected();
 		} catch (IOException ex) {

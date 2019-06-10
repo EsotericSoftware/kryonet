@@ -33,6 +33,7 @@ import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterTCP;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
+import com.esotericsoftware.kryonet.FrameworkMessage.RegisteredClassesInfo;
 
 public class JsonSerialization implements Serialization {
 	private final Json json = new Json();
@@ -48,6 +49,7 @@ public class JsonSerialization implements Serialization {
 		json.addClassTag("KeepAlive", KeepAlive.class);
 		json.addClassTag("DiscoverHost", DiscoverHost.class);
 		json.addClassTag("Ping", Ping.class);
+		json.addClassTag("RegisteredClassesInfo", RegisteredClassesInfo.class);
 
 		json.setWriter(writer);
 	}
