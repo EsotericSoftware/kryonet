@@ -19,9 +19,12 @@
 
 package com.esotericsoftware.kryonet;
 
+import org.junit.Ignore;
+
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Ignore
 public class ReuseTest extends KryoNetTestCase {
 	public void testPingPong () throws IOException {
 		final AtomicInteger stringCount = new AtomicInteger(0);

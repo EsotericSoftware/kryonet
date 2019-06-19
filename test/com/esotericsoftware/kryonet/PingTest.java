@@ -22,7 +22,9 @@ package com.esotericsoftware.kryonet;
 import java.io.IOException;
 
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
+import org.junit.Ignore;
 
+@Ignore
 public class PingTest extends KryoNetTestCase {
 	public void testPing () throws IOException {
 		final Server server = new Server();

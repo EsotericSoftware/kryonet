@@ -75,5 +75,4 @@
             <url>https://nexus.dsx.cool/repository/maven-releases/</url>
         </repository>
     </distributionManagement>
-
 </project>

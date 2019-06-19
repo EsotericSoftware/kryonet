@@ -70,6 +70,7 @@ public class Client extends Connection implements EndPoint {
 	private int connectUdpPort;
 	private boolean isClosed;
 	private ClientDiscoveryHandler discoveryHandler;
+	private boolean checkRegisteredClasses;
 
 	/** Creates a Client with a write buffer size of 8192 and an object buffer size of 2048. */
 	public Client () {
@@ -121,6 +122,14 @@ public class Client extends Connection implements EndPoint {
 
 	public Kryo getKryo () {
 		return serialization instanceof KryoSerialization ? ((KryoSerialization)serialization).getKryo() : null;
+	}
+
+	public void setCheckRegisteredClasses(boolean value) {
+		checkRegisteredClasses = value;
+	}
+
+	public boolean checkRegisteredClasses() {
+		return checkRegisteredClasses;
 	}
 
 	/** Opens a TCP only client.
