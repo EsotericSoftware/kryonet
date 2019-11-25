@@ -34,10 +34,12 @@ public class PingTest extends KryoNetTestCase {
 		final Client client = new Client();
 		startEndPoint(client);
 		client.addListener(new Listener() {
+			@Override
 			public void connected (Connection connection) {
 				client.updateReturnTripTime();
 			}
 
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof Ping) {
 					Ping ping = (Ping)object;

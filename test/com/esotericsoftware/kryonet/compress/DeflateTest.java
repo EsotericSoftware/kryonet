@@ -49,6 +49,7 @@ public class DeflateTest extends KryoNetTestCase {
 		startEndPoint(server);
 		server.bind(tcpPort, udpPort);
 		server.addListener(new Listener() {
+                        @Override
 			public void connected (Connection connection) {
 				server.sendToAllTCP(data);
 				connection.sendTCP(data);
@@ -62,6 +63,7 @@ public class DeflateTest extends KryoNetTestCase {
 		register(client.getKryo());
 		startEndPoint(client);
 		client.addListener(new Listener() {
+                        @Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof SomeData) {
 					SomeData data = (SomeData)object;

@@ -19,11 +19,6 @@
 
 package com.esotericsoftware.kryonet;
 
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.io.Input;
-import com.esotericsoftware.kryo.io.Output;
-import com.esotericsoftware.minlog.Log;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,11 +38,13 @@ public class UnregisteredClassTest extends KryoNetTestCase {
 		startEndPoint(server);
 		server.bind(tcpPort, udpPort);
 		server.addListener(new Listener() {
+			@Override
 			public void connected (Connection connection) {
 				connection.sendTCP(dataTCP);
 				connection.sendUDP(dataUDP);
 			}
 
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof Data) {
 					Data data = (Data)object;
@@ -68,6 +65,7 @@ public class UnregisteredClassTest extends KryoNetTestCase {
 		client.getKryo().setRegistrationRequired(false);
 		startEndPoint(client);
 		client.addListener(new Listener() {
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof Data) {
 					Data data = (Data)object;
@@ -95,10 +93,7 @@ public class UnregisteredClassTest extends KryoNetTestCase {
 	private void populateData (Data data, boolean isTCP) {
 		data.isTCP = isTCP;
 
-		StringBuffer buffer = new StringBuffer();
-		for (int i = 0; i < 3000; i++)
-			buffer.append('a');
-		data.string = buffer.toString();
+		data.string = "a".repeat(3000);
 
 		data.strings = new String[] {"abcdefghijklmnopqrstuvwxyz0123456789", "", null, "!@#$", "�����"};
 		data.ints = new int[] {-1234567, 1234567, -1, 0, 1, Integer.MAX_VALUE, Integer.MIN_VALUE};
@@ -106,7 +101,7 @@ public class UnregisteredClassTest extends KryoNetTestCase {
 		data.floats = new float[] {0, -0, 1, -1, 123456, -123456, 0.1f, 0.2f, -0.3f, (float)Math.PI, Float.MAX_VALUE,
 			Float.MIN_VALUE};
 		data.doubles = new double[] {0, -0, 1, -1, 123456, -123456, 0.1d, 0.2d, -0.3d, Math.PI, Double.MAX_VALUE, Double.MIN_VALUE};
-		data.longs = new long[] {0, -0, 1, -1, 123456, -123456, 99999999999l, -99999999999l, Long.MAX_VALUE, Long.MIN_VALUE};
+		data.longs = new long[] {0, -0, 1, -1, 123456, -123456, 99999999999L, -99999999999L, Long.MAX_VALUE, Long.MIN_VALUE};
 		data.bytes = new byte[] {-123, 123, -1, 0, 1, Byte.MAX_VALUE, Byte.MIN_VALUE};
 		data.chars = new char[] {32345, 12345, 0, 1, 63, Character.MAX_VALUE, Character.MIN_VALUE};
 		data.booleans = new boolean[] {true, false};
@@ -116,7 +111,7 @@ public class UnregisteredClassTest extends KryoNetTestCase {
 			Float.MIN_VALUE};
 		data.Doubles = new Double[] {0d, -0d, 1d, -1d, 123456d, -123456d, 0.1d, 0.2d, -0.3d, Math.PI, Double.MAX_VALUE,
 			Double.MIN_VALUE};
-		data.Longs = new Long[] {0l, -0l, 1l, -1l, 123456l, -123456l, 99999999999l, -99999999999l, Long.MAX_VALUE, Long.MIN_VALUE};
+		data.Longs = new Long[] {0L, -0L, 1L, -1L, 123456L, -123456L, 99999999999L, -99999999999L, Long.MAX_VALUE, Long.MIN_VALUE};
 		data.Bytes = new Byte[] {-123, 123, -1, 0, 1, Byte.MAX_VALUE, Byte.MIN_VALUE};
 		data.Chars = new Character[] {32345, 12345, 0, 1, 63, Character.MAX_VALUE, Character.MIN_VALUE};
 		data.Booleans = new Boolean[] {true, false};
@@ -124,25 +119,26 @@ public class UnregisteredClassTest extends KryoNetTestCase {
 
 	static public class Data {
 		public String string;
-		public String[] strings;
-		public int[] ints;
-		public short[] shorts;
-		public float[] floats;
-		public double[] doubles;
-		public long[] longs;
-		public byte[] bytes;
-		public char[] chars;
-		public boolean[] booleans;
-		public Integer[] Ints;
-		public Short[] Shorts;
-		public Float[] Floats;
-		public Double[] Doubles;
-		public Long[] Longs;
-		public Byte[] Bytes;
-		public Character[] Chars;
-		public Boolean[] Booleans;
-		public boolean isTCP;
+		String[] strings;
+		int[] ints;
+		short[] shorts;
+		float[] floats;
+		double[] doubles;
+		long[] longs;
+		byte[] bytes;
+		char[] chars;
+		boolean[] booleans;
+		Integer[] Ints;
+		Short[] Shorts;
+		Float[] Floats;
+		Double[] Doubles;
+		Long[] Longs;
+		Byte[] Bytes;
+		Character[] Chars;
+		Boolean[] Booleans;
+		boolean isTCP;
 
+		@Override
 		public int hashCode () {
 			final int prime = 31;
 			int result = 1;
@@ -168,6 +164,7 @@ public class UnregisteredClassTest extends KryoNetTestCase {
 			return result;
 		}
 
+		@Override
 		public boolean equals (Object obj) {
 			if (this == obj) return true;
 			if (obj == null) return false;
@@ -193,10 +190,10 @@ public class UnregisteredClassTest extends KryoNetTestCase {
 			if (string == null) {
 				if (other.string != null) return false;
 			} else if (!string.equals(other.string)) return false;
-			if (!Arrays.equals(strings, other.strings)) return false;
-			return true;
+			return Arrays.equals(strings, other.strings);
 		}
 
+		@Override
 		public String toString () {
 			return "Data";
 		}

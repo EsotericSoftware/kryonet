@@ -26,7 +26,7 @@ import java.io.IOException;
 import com.esotericsoftware.kryonet.util.InputStreamSender;
 
 public class InputStreamSenderTest extends KryoNetTestCase {
-	boolean success;
+	private boolean success;
 
 	public void testStream () throws IOException {
 		final int largeDataSize = 12345;
@@ -36,6 +36,7 @@ public class InputStreamSenderTest extends KryoNetTestCase {
 		startEndPoint(server);
 		server.bind(tcpPort, udpPort);
 		server.addListener(new Listener() {
+			@Override
 			public void connected (Connection connection) {
 				ByteArrayOutputStream output = new ByteArrayOutputStream(largeDataSize);
 				for (int i = 0; i < largeDataSize; i++)
@@ -43,11 +44,13 @@ public class InputStreamSenderTest extends KryoNetTestCase {
 				ByteArrayInputStream input = new ByteArrayInputStream(output.toByteArray());
 				// Send data in 512 byte chunks.
 				connection.addListener(new InputStreamSender(input, 512) {
+					@Override
 					protected void start () {
 						// Normally would send an object so the receiving side knows how to handle the chunks we are about to send.
 						System.out.println("starting");
 					}
 
+					@Override
 					protected Object next (byte[] bytes) {
 						System.out.println("sending " + bytes.length);
 						return bytes; // Normally would wrap the byte[] with an object so the receiving side knows how to handle it.
@@ -64,6 +67,7 @@ public class InputStreamSenderTest extends KryoNetTestCase {
 		client.addListener(new Listener() {
 			int total;
 
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof byte[]) {
 					int length = ((byte[])object).length;

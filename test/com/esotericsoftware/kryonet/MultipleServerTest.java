@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.esotericsoftware.kryo.Kryo;
 
 public class MultipleServerTest extends KryoNetTestCase {
-	AtomicInteger received = new AtomicInteger();
+	private AtomicInteger received = new AtomicInteger();
 	
 	public void testMultipleThreads () throws IOException {
 		final Server server1 = new Server(16384, 8192);
@@ -34,6 +34,7 @@ public class MultipleServerTest extends KryoNetTestCase {
 		startEndPoint(server1);
 		server1.bind(tcpPort, udpPort);
 		server1.addListener(new Listener() {
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof String) {
 					if (!object.equals("client1")) fail();
@@ -47,6 +48,7 @@ public class MultipleServerTest extends KryoNetTestCase {
 		startEndPoint(server2);
 		server2.bind(tcpPort + 1, udpPort + 1);
 		server2.addListener(new Listener() {
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof String) {
 					if (!object.equals("client2")) fail();
@@ -61,6 +63,7 @@ public class MultipleServerTest extends KryoNetTestCase {
 		client1.getKryo().register(String[].class);
 		startEndPoint(client1);
 		client1.addListener(new Listener() {
+			@Override
 			public void connected (Connection connection) {
 				connection.sendTCP("client1");
 			}
@@ -71,6 +74,7 @@ public class MultipleServerTest extends KryoNetTestCase {
 		client2.getKryo().register(String[].class);
 		startEndPoint(client2);
 		client2.addListener(new Listener() {
+			@Override
 			public void connected (Connection connection) {
 				connection.sendTCP("client2");
 			}

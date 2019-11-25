@@ -33,15 +33,16 @@ abstract public class KryoNetTestCase extends TestCase {
 	static public String host = "localhost";
 	static public int tcpPort = 54555, udpPort = 54777;
 
-	private ArrayList<Thread> threads = new ArrayList();
-	ArrayList<EndPoint> endPoints = new ArrayList();
+	private ArrayList<Thread> threads = new ArrayList<>();
+	private ArrayList<EndPoint> endPoints = new ArrayList<>();
 	private Timer timer;
-	boolean fail;
+	private boolean fail;
 
 	public KryoNetTestCase () {
 		// Log.TRACE();
 		// Log.DEBUG();
 		Log.setLogger(new Logger() {
+			@Override
 			public void log (int level, String category, String message, Throwable ex) {
 				// if (category == null || category.equals("kryonet")) //
 				super.log(level, category, message, ex);
@@ -49,11 +50,13 @@ abstract public class KryoNetTestCase extends TestCase {
 		});
 	}
 
+	@Override
 	protected void setUp () throws Exception {
 		System.out.println("---- " + getClass().getSimpleName());
 		timer = new Timer();
 	}
 
+	@Override
 	protected void tearDown () throws Exception {
 		timer.cancel();
 	}
@@ -71,9 +74,9 @@ abstract public class KryoNetTestCase extends TestCase {
 
 	public void stopEndPoints (int stopAfterMillis) {
 		timer.schedule(new TimerTask() {
+			@Override
 			public void run () {
-				for (EndPoint endPoint : endPoints)
-					endPoint.stop();
+				endPoints.forEach(EndPoint::stop);
 				endPoints.clear();
 			}
 		}, stopAfterMillis);
@@ -88,6 +91,7 @@ abstract public class KryoNetTestCase extends TestCase {
 	public void waitForThreads () {
 		fail = false;
 		TimerTask failTask = new TimerTask() {
+			@Override
 			public void run () {
 				stopEndPoints();
 				fail = true;
@@ -95,9 +99,9 @@ abstract public class KryoNetTestCase extends TestCase {
 		};
 		timer.schedule(failTask, 11000);
 		while (true) {
-			for (Iterator iter = threads.iterator(); iter.hasNext();) {
-				Thread thread = (Thread)iter.next();
-				if (!thread.isAlive()) iter.remove();
+			for (Iterator iterator = threads.iterator(); iterator.hasNext();) {
+				Thread thread = (Thread)iterator.next();
+				if (!thread.isAlive()) iterator.remove();
 			}
 			if (threads.isEmpty()) break;
 			try {

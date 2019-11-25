@@ -44,6 +44,7 @@ public class DiscoverHostTest extends KryoNetTestCase {
 		startEndPoint(server);
 		server.bind(54555);
 		server.addListener(new Listener() {
+			@Override
 			public void disconnected (Connection connection) {
 				broadcastServer.stop();
 				server.stop();
@@ -70,6 +71,7 @@ public class DiscoverHostTest extends KryoNetTestCase {
 	public void testCustomBroadcast () throws IOException {
 
 		ServerDiscoveryHandler serverDiscoveryHandler = new ServerDiscoveryHandler() {
+			@Override
 			public boolean onDiscoverHost (DatagramChannel datagramChannel, InetSocketAddress fromAddress,
 				Serialization serialization) throws IOException {
 
@@ -91,12 +93,14 @@ public class DiscoverHostTest extends KryoNetTestCase {
 		ClientDiscoveryHandler clientDiscoveryHandler = new ClientDiscoveryHandler() {
 			private Input input = null;
 
+			@Override
 			public DatagramPacket onRequestNewDatagramPacket () {
 				byte[] buffer = new byte[1024];
 				input = new Input(buffer);
 				return new DatagramPacket(buffer, buffer.length);
 			}
 
+			@Override
 			public void onDiscoveredHost (DatagramPacket datagramPacket, Kryo kryo) {
 				if (input != null) {
 					DiscoveryResponsePacket packet;
@@ -113,6 +117,7 @@ public class DiscoverHostTest extends KryoNetTestCase {
 				}
 			}
 
+			@Override
 			public void onFinally () {
 				if (input != null) {
 					input.close();
@@ -134,6 +139,7 @@ public class DiscoverHostTest extends KryoNetTestCase {
 		startEndPoint(server);
 		server.bind(54555);
 		server.addListener(new Listener() {
+			@Override
 			public void disconnected (Connection connection) {
 				broadcastServer.stop();
 				server.stop();
@@ -163,13 +169,13 @@ public class DiscoverHostTest extends KryoNetTestCase {
 
 	public static class DiscoveryResponsePacket {
 
-		public DiscoveryResponsePacket () {
+		DiscoveryResponsePacket() {
 			//
 		}
 
-		public int id;
-		public String gameName;
-		public String playerName;
+		int id;
+		String gameName;
+		String playerName;
 	}
 
 }

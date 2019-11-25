@@ -25,8 +25,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.esotericsoftware.kryo.Kryo;
 
 public class BufferTest extends KryoNetTestCase {
-	AtomicInteger received = new AtomicInteger();
-	AtomicInteger receivedBytes = new AtomicInteger();
 
 	public void testManyLargeMessages () throws IOException {
 		final int messageCount = 1024;
@@ -42,6 +40,7 @@ public class BufferTest extends KryoNetTestCase {
 			AtomicInteger received = new AtomicInteger();
 			AtomicInteger receivedBytes = new AtomicInteger();
 
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof LargeMessage) {
 					System.out.println("Server sending message: " + received.get());
@@ -68,6 +67,7 @@ public class BufferTest extends KryoNetTestCase {
 			AtomicInteger received = new AtomicInteger();
 			AtomicInteger receivedBytes = new AtomicInteger();
 
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof LargeMessage) {
 					int count = received.incrementAndGet();
@@ -97,12 +97,12 @@ public class BufferTest extends KryoNetTestCase {
 	}
 
 	public static class LargeMessage {
-		public byte[] bytes;
+		byte[] bytes;
 
 		public LargeMessage () {
 		}
 
-		public LargeMessage (byte[] bytes) {
+		LargeMessage(byte[] bytes) {
 			this.bytes = bytes;
 		}
 	}

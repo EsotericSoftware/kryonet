@@ -54,6 +54,7 @@ public class KryoNetBufferUnderflowTest {
 
 		// Catching exception
 		Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+                        @Override
 			public void uncaughtException (Thread t, Throwable e) {
 				e.printStackTrace();
 				received.set(true);

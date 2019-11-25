@@ -44,19 +44,21 @@ public class ReconnectTest extends KryoNetTestCase {
 
 		// ----
 
-		final AtomicInteger reconnetCount = new AtomicInteger();
+		final AtomicInteger reconnectCount = new AtomicInteger();
 		final Client client = new Client();
 		startEndPoint(client);
 		client.addListener(new Listener() {
+			@Override
 			public void disconnected (Connection connection) {
-				if (reconnetCount.getAndIncrement() == 2) {
+				if (reconnectCount.getAndIncrement() == 2) {
 					stopEndPoints();
 					return;
 				}
 				new Thread() {
+					@Override
 					public void run () {
 						try {
-							System.out.println("Reconnecting: " + reconnetCount.get());
+							System.out.println("Reconnecting: " + reconnectCount.get());
 							client.reconnect();
 						} catch (IOException ex) {
 							ex.printStackTrace();
@@ -68,6 +70,6 @@ public class ReconnectTest extends KryoNetTestCase {
 		client.connect(5000, host, tcpPort);
 
 		waitForThreads(10000);
-		assertEquals(3, reconnetCount.getAndIncrement());
+		assertEquals(3, reconnectCount.getAndIncrement());
 	}
 }
