@@ -695,7 +695,7 @@ public class ObjectSpace {
 				output.writeInt(result.objectID, true);
 			}
 
-			public InvokeMethodResult read (Kryo kryo, Input input, Class<InvokeMethodResult> type) {
+			public InvokeMethodResult read (Kryo kryo, Input input, Class type) {
 				InvokeMethodResult result = super.read(kryo, input, type);
 				result.objectID = input.readInt(true);
 				return result;
