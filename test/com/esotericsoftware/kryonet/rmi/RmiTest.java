@@ -45,11 +45,13 @@ public class RmiTest extends KryoNetTestCase {
 		serverObjectSpace.register(42, serverTestObject);
 
 		server.addListener(new Listener() {
+			@Override
 			public void connected (final Connection connection) {
 				serverObjectSpace.addConnection(connection);
 				runTest(connection, 12, 1234);
 			}
 
+			@Override
 			public void received (Connection connection, Object object) {
 				if (!(object instanceof MessageWithTestObject)) return;
 				MessageWithTestObject m = (MessageWithTestObject)object;
@@ -71,10 +73,12 @@ public class RmiTest extends KryoNetTestCase {
 
 		startEndPoint(client);
 		client.addListener(new Listener() {
+			@Override
 			public void connected (final Connection connection) {
 				runTest(connection, 42, 4321);
 			}
 
+			@Override
 			public void received (Connection connection, Object object) {
 				if (!(object instanceof MessageWithTestObject)) return;
 				MessageWithTestObject m = (MessageWithTestObject)object;
@@ -103,10 +107,12 @@ public class RmiTest extends KryoNetTestCase {
 		serverObjectSpace.register(42, serverTestObject);
 
 		server.addListener(new Listener() {
+			@Override
 			public void connected (final Connection connection) {
 				serverObjectSpace.addConnection(connection);
 			}
 
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof MessageWithTestObject) {
 					assertEquals(256 + 512 + 1024, serverTestObject.moos);
@@ -122,8 +128,10 @@ public class RmiTest extends KryoNetTestCase {
 
 		startEndPoint(client);
 		client.addListener(new Listener() {
+			@Override
 			public void connected (final Connection connection) {
 				new Thread() {
+					@Override
 					public void run () {
 						TestObject test = ObjectSpace.getRemoteObject(connection, 42, TestObject.class);
 						test.other();
@@ -137,6 +145,7 @@ public class RmiTest extends KryoNetTestCase {
 						try {
 							Thread.sleep(300);
 						} catch (InterruptedException ex) {
+							ex.printStackTrace();
 						}
 						((RemoteObject)test).setResponseTimeout(3000);
 						for (int i = 0; i < 256; i++)
@@ -157,8 +166,9 @@ public class RmiTest extends KryoNetTestCase {
 		waitForThreads();
 	}
 
-	static public void runTest (final Connection connection, final int id, final float other) {
+	private static void runTest(final Connection connection, final int id, final float other) {
 		new Thread() {
+                        @Override
 			public void run () {
 				TestObject test = ObjectSpace.getRemoteObject(connection, id, TestObject.class);
 				RemoteObject remoteObject = (RemoteObject)test;
@@ -241,7 +251,7 @@ public class RmiTest extends KryoNetTestCase {
 	}
 
 	/** Registers the same classes in the same order on both the client and server. */
-	static public void register (Kryo kryo) {
+	private static void register(Kryo kryo) {
 		kryo.register(Object.class); // Needed for Object#toString, hashCode, etc.
 		kryo.register(TestObject.class);
 		kryo.register(MessageWithTestObject.class);
@@ -252,18 +262,18 @@ public class RmiTest extends KryoNetTestCase {
 		ObjectSpace.registerClasses(kryo);
 	}
 
-	static public interface TestObject {
-		public void throwException ();
+	public interface TestObject {
+		void throwException ();
 
-		public void moo ();
+		void moo ();
 
-		public void moo (String value);
+		void moo (String value);
 
-		public void moo (String value, long delay);
+		void moo (String value, long delay);
 
-		public float other ();
+		float other ();
 
-		public float slow ();
+		void slow ();
 	}
 
 	static public class TestObjectImpl implements TestObject {
@@ -275,20 +285,24 @@ public class RmiTest extends KryoNetTestCase {
 			this.other = other;
 		}
 
+                @Override
 		public void throwException () {
 			throw new UnsupportedOperationException("Why would I do that?");
 		}
 
+                @Override
 		public void moo () {
 			moos++;
 			System.out.println("Moo!");
 		}
 
+                @Override
 		public void moo (String value) {
 			moos += 2;
 			System.out.println("Moo: " + value);
 		}
 
+                @Override
 		public void moo (String value, long delay) {
 			moos += 4;
 			System.out.println("Moo: " + value);
@@ -299,17 +313,18 @@ public class RmiTest extends KryoNetTestCase {
 			}
 		}
 
+                @Override
 		public float other () {
 			return other;
 		}
 
-		public float slow () {
+                @Override
+		public void slow () {
 			try {
 				Thread.sleep(300);
 			} catch (InterruptedException ex) {
 			}
-			return 666;
-		}
+				}
 	}
 
 	static public class MessageWithTestObject {

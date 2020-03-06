@@ -1,15 +1,15 @@
 /* Copyright (c) 2008, Nathan Sweet
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following
  * conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
  * - Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
  * disclaimer in the documentation and/or other materials provided with the distribution.
  * - Neither the name of Esoteric Software nor the names of its contributors may be used to endorse or promote products derived
  * from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
  * SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
@@ -100,7 +100,8 @@ public class Client extends Connection implements EndPoint {
 
 		this.serialization = serialization;
 
-		this.discoveryHandler = ClientDiscoveryHandler.DEFAULT;
+		this.discoveryHandler = new ClientDiscoveryHandler() {
+		};
 
 		initialize(serialization, writeBufferSize, objectBufferSize);
 
@@ -120,7 +121,7 @@ public class Client extends Connection implements EndPoint {
 	}
 
 	public Kryo getKryo () {
-		return serialization instanceof KryoSerialization ? ((KryoSerialization)serialization).getKryo() : null;
+		return ((KryoSerialization)serialization).getKryo();
 	}
 
 	/** Opens a TCP only client.
@@ -472,8 +473,7 @@ public class Client extends Connection implements EndPoint {
 		if (DEBUG) debug("kryonet", "Broadcasted host discovery on port: " + udpPort);
 	}
 
-	/** Broadcasts a UDP message on the LAN to discover any running servers. The address of the first server to respond is
-	 * returned.
+	/** Broadcasts a UDP message on the LAN to discover any running servers. The address of the first server to respond is returned.
 	 * @param udpPort The UDP port of the server.
 	 * @param timeoutMillis The number of milliseconds to wait for a response.
 	 * @return the first server found, or null if no server responded. */

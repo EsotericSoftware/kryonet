@@ -56,11 +56,13 @@ public class RmiSendObjectTest extends KryoNetTestCase {
 		serverObjectSpace.register(777, serverTestObject.getOtherObject());
 
 		server.addListener(new Listener() {
+			@Override
 			public void connected (final Connection connection) {
 				// Allow the connection to access objects in the ObjectSpace.
 				serverObjectSpace.addConnection(connection);
 			}
 
+			@Override
 			public void received (Connection connection, Object object) {
 				// The test is complete when the client sends the OtherObject instance.
 				if (object == serverTestObject.getOtherObject()) stopEndPoints();
@@ -75,6 +77,7 @@ public class RmiSendObjectTest extends KryoNetTestCase {
 
 		// The ThreadedListener means the network thread won't be blocked when waiting for RMI responses.
 		client.addListener(new ThreadedListener(new Listener() {
+			@Override
 			public void connected (final Connection connection) {
 				TestObject test = ObjectSpace.getRemoteObject(connection, 42, TestObject.class);
 				// Normal remote method call.
@@ -93,35 +96,38 @@ public class RmiSendObjectTest extends KryoNetTestCase {
 	}
 
 	/** Registers the same classes in the same order on both the client and server. */
-	static public void register (Kryo kryo) {
+	private static void register(Kryo kryo) {
 		kryo.register(TestObject.class);
 		kryo.register(OtherObject.class, new RemoteObjectSerializer());
 		ObjectSpace.registerClasses(kryo);
 	}
 
-	static public interface TestObject {
-		public float other ();
+	public interface TestObject {
+		float other ();
 
-		public OtherObject getOtherObject ();
+		OtherObject getOtherObject ();
 	}
 
 	static public class TestObjectImpl implements TestObject {
-		public OtherObject otherObject;
+		OtherObject otherObject;
 
+		@Override
 		public float other () {
 			return 43.21f;
 		}
 
+		@Override
 		public OtherObject getOtherObject () {
 			return otherObject;
 		}
 	}
 
-	static public interface OtherObject {
-		public float value ();
+	public interface OtherObject {
+		float value ();
 	}
 
 	static public class OtherObjectImpl implements OtherObject {
+		@Override
 		public float value () {
 			return 12.34f;
 		}

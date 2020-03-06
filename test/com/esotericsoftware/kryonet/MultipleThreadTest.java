@@ -25,7 +25,7 @@ import java.util.Arrays;
 import com.esotericsoftware.kryo.Kryo;
 
 public class MultipleThreadTest extends KryoNetTestCase {
-	int receivedServer, receivedClient1, receivedClient2;
+	private int receivedServer;
 
 	public void testMultipleThreads () throws IOException {
 		receivedServer = 0;
@@ -40,6 +40,7 @@ public class MultipleThreadTest extends KryoNetTestCase {
 		startEndPoint(server);
 		server.bind(tcpPort, udpPort);
 		server.addListener(new Listener() {
+			@Override
 			public void received (Connection connection, Object object) {
 				receivedServer++;
 				if (receivedServer == messageCount * clients) stopEndPoints();
@@ -55,6 +56,7 @@ public class MultipleThreadTest extends KryoNetTestCase {
 			client.addListener(new Listener() {
 				int received;
 
+				@Override
 				public void received (Connection connection, Object object) {
 					if (object instanceof String) {
 						received++;
@@ -75,11 +77,11 @@ public class MultipleThreadTest extends KryoNetTestCase {
 
 		for (int i = 0; i < threads; i++) {
 			new Thread() {
+				@Override
 				public void run () {
 					Connection[] connections = server.getConnections();
 					for (int i = 0; i < messageCount; i++) {
-						for (int ii = 0, n = connections.length; ii < n; ii++)
-							connections[ii].sendTCP("message" + i);
+						for (Connection connection : connections) connection.sendTCP("message" + i);
 						try {
 							Thread.sleep(sleepMillis);
 						} catch (InterruptedException ignored) {

@@ -1,15 +1,15 @@
 /* Copyright (c) 2008, Nathan Sweet
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following
  * conditions are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
  * - Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
  * disclaimer in the documentation and/or other materials provided with the distribution.
  * - Neither the name of Esoteric Software nor the names of its contributors may be used to endorse or promote products derived
  * from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
  * SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
@@ -27,24 +27,15 @@ import java.nio.channels.DatagramChannel;
 import com.esotericsoftware.kryonet.FrameworkMessage.DiscoverHost;
 
 public interface ServerDiscoveryHandler {
-	/** This implementation of {@link ServerDiscoveryHandler} is responsible for providing the {@link Server} with it's default
-	 * behavior. */
-	public static final ServerDiscoveryHandler DEFAULT = new ServerDiscoveryHandler() {
-		private ByteBuffer emptyBuffer = ByteBuffer.allocate(0);
-
-		@Override
-		public boolean onDiscoverHost (DatagramChannel datagramChannel, InetSocketAddress fromAddress, Serialization serialization)
-			throws IOException {
-			datagramChannel.send(emptyBuffer, fromAddress);
-			return true;
-		}
-	};
 
 	/** Called when the {@link Server} receives a {@link DiscoverHost} packet.
 	 * @param fromAddress {@link InetSocketAddress} the {@link DiscoverHost} came from
 	 * @param serialization the {@link Server}'s {@link Serialization} instance
 	 * @return true if a response was sent to {@code fromAddress}, false otherwise
 	 * @throws IOException from the use of {@link DatagramChannel#send(ByteBuffer, java.net.SocketAddress)} */
-	public boolean onDiscoverHost (DatagramChannel datagramChannel, InetSocketAddress fromAddress, Serialization serialization)
-		throws IOException;
+	public default boolean onDiscoverHost (DatagramChannel datagramChannel, InetSocketAddress fromAddress, Serialization serialization)
+			throws IOException {
+		datagramChannel.send(ByteBuffer.allocate(0), fromAddress);
+		return true;
+	};
 }

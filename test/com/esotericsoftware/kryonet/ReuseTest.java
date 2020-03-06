@@ -29,11 +29,13 @@ public class ReuseTest extends KryoNetTestCase {
 		final Server server = new Server();
 		startEndPoint(server);
 		server.addListener(new Listener() {
+			@Override
 			public void connected (Connection connection) {
 				connection.sendTCP("TCP from server");
 				connection.sendUDP("UDP from server");
 			}
 
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof String) {
 					stringCount.incrementAndGet();
@@ -47,11 +49,13 @@ public class ReuseTest extends KryoNetTestCase {
 		final Client client = new Client();
 		startEndPoint(client);
 		client.addListener(new Listener() {
+			@Override
 			public void connected (Connection connection) {
 				connection.sendTCP("TCP from client");
 				connection.sendUDP("UDP from client");
 			}
 
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof String) {
 					stringCount.incrementAndGet();
@@ -67,6 +71,7 @@ public class ReuseTest extends KryoNetTestCase {
 			try {
 				Thread.sleep(250);
 			} catch (InterruptedException ex) {
+				ex.printStackTrace();
 			}
 			server.close();
 		}

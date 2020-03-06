@@ -19,14 +19,12 @@
 
 package com.esotericsoftware.kryonet;
 
-import com.esotericsoftware.jsonbeans.JsonWriter;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.util.Arrays;
 
 public class JsonTest extends KryoNetTestCase {
-	String fail;
+	private String fail;
 
 	public void testJson () throws IOException {
 		fail = null;
@@ -40,11 +38,13 @@ public class JsonTest extends KryoNetTestCase {
 		startEndPoint(server);
 		server.bind(tcpPort, udpPort);
 		server.addListener(new Listener() {
+            @Override
 			public void connected (Connection connection) {
 				connection.sendTCP(dataTCP);
 				connection.sendUDP(dataUDP); // Note UDP ping pong stops if a UDP packet is lost.
 			}
 
+			@Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof Data) {
 					Data data = (Data)object;
@@ -70,6 +70,7 @@ public class JsonTest extends KryoNetTestCase {
 		final Client client = new Client(16384, 8192, new JsonSerialization());
 		startEndPoint(client);
 		client.addListener(new Listener() {
+                        @Override
 			public void received (Connection connection, Object object) {
 				if (object instanceof Data) {
 					Data data = (Data)object;
@@ -100,9 +101,8 @@ public class JsonTest extends KryoNetTestCase {
 	private void populateData (Data data, boolean isTCP) {
 		data.isTCP = isTCP;
 
-		StringBuffer buffer = new StringBuffer();
-		for (int i = 0; i < 3000; i++)
-			buffer.append('a');
+		StringBuilder buffer = new StringBuilder();
+		buffer.append("a".repeat(3000));
 		data.string = buffer.toString();
 
 		data.strings = new String[] {"abcdefghijklmnopqrstuvwxyz0123456789", "", null, "!@#$", "�����"};
@@ -121,19 +121,19 @@ public class JsonTest extends KryoNetTestCase {
 
 	static public class Data {
 		public String string;
-		public String[] strings;
-		public int[] ints;
-		public short[] shorts;
-		public float[] floats;
-		public byte[] bytes;
-		public boolean[] booleans;
-		public Integer[] Ints;
-		public Short[] Shorts;
-		public Float[] Floats;
-		public Byte[] Bytes;
-		public Boolean[] Booleans;
-		public boolean isTCP;
+		String[] strings;
+		int[] ints;
+		short[] shorts;float[] floats;
+		byte[] bytes;
+		boolean[] booleans;
+		Integer[] Ints;
+		Short[] Shorts;
+		Float[] Floats;
+		Byte[] Bytes;
+		Boolean[] Booleans;
+		boolean isTCP;
 
+		@Override
 		public int hashCode () {
 			final int prime = 31;
 			int result = 1;
@@ -153,6 +153,7 @@ public class JsonTest extends KryoNetTestCase {
 			return result;
 		}
 
+		@Override
 		public boolean equals (Object obj) {
 			if (this == obj) return true;
 			if (obj == null) return false;
@@ -172,10 +173,10 @@ public class JsonTest extends KryoNetTestCase {
 			if (string == null) {
 				if (other.string != null) return false;
 			} else if (!string.equals(other.string)) return false;
-			if (!Arrays.equals(strings, other.strings)) return false;
-			return true;
+			return Arrays.equals(strings, other.strings);
 		}
 
+		@Override
 		public String toString () {
 			return "Data";
 		}
