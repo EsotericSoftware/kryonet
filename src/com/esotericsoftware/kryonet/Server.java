@@ -58,6 +58,7 @@ public class Server implements EndPoint {
 	private Object updateLock = new Object();
 	private Thread updateThread;
 	private ServerDiscoveryHandler discoveryHandler;
+	private boolean checkRegisteredClasses;
 
 	private Listener dispatchListener = new Listener() {
 		public void connected (Connection connection) {
@@ -134,6 +135,14 @@ public class Server implements EndPoint {
 
 	public Kryo getKryo () {
 		return serialization instanceof KryoSerialization ? ((KryoSerialization)serialization).getKryo() : null;
+	}
+
+	public void setCheckRegisteredClasses(boolean value) {
+		checkRegisteredClasses = value;
+	}
+
+	public boolean checkRegisteredClasses() {
+		return checkRegisteredClasses;
 	}
 
 	/** Opens a TCP only server.
@@ -431,6 +440,8 @@ public class Server implements EndPoint {
 			RegisterTCP registerConnection = new RegisterTCP();
 			registerConnection.connectionID = id;
 			connection.sendTCP(registerConnection);
+			if (checkRegisteredClasses)
+				connection.sendRegisteredClasses();
 
 			if (udp == null) connection.notifyConnected();
 		} catch (IOException ex) {

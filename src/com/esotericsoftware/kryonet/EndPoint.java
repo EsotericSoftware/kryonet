@@ -59,4 +59,8 @@ public interface EndPoint extends Runnable {
 	 * not being used.
 	 * @return May be null. */
 	public Kryo getKryo ();
+
+	public void setCheckRegisteredClasses(boolean value);
+
+	public boolean checkRegisteredClasses();
 }

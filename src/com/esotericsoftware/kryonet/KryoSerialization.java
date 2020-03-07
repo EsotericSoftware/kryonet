@@ -29,6 +29,7 @@ import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
 import com.esotericsoftware.kryonet.FrameworkMessage.Ping;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterTCP;
 import com.esotericsoftware.kryonet.FrameworkMessage.RegisterUDP;
+import com.esotericsoftware.kryonet.FrameworkMessage.RegisteredClassesInfo;
 
 import java.nio.ByteBuffer;
 
@@ -51,6 +52,7 @@ public class KryoSerialization implements Serialization {
 		kryo.register(KeepAlive.class);
 		kryo.register(DiscoverHost.class);
 		kryo.register(Ping.class);
+		kryo.register(RegisteredClassesInfo.class);
 
 		input = new ByteBufferInput();
 		output = new ByteBufferOutput();

@@ -65,13 +65,14 @@ import com.esotericsoftware.reflectasm.MethodAccess;
  * ObjectSpace requires {@link KryoSerialization}.
  * @author Nathan Sweet <misc@n4te.com> */
 public class ObjectSpace {
-	static private final int returnValueMask = 1 << 7;
-	static private final int returnExceptionMask = 1 << 6;
-	static private final int responseIdMask = 0xff & ~returnValueMask & ~returnExceptionMask;
+	static private final int returnValueMask = 1 << 15;
+	static private final int returnExceptionMask = 1 << 14;
+	static private final int responseIdMask = 0xffff & ~returnValueMask & ~returnExceptionMask;
+	static private final int responseTableMask = 0x3f; // 64 parallel remote invocations allowed
 
 	static private final Object instancesLock = new Object();
 	static ObjectSpace[] instances = new ObjectSpace[0];
-	static private final HashMap<Class, CachedMethod[]> methodCache = new HashMap();
+	static private final HashMap<Kryo, HashMap<Class, CachedMethod[]>> methodCache = new HashMap();
 	static private boolean asm = true;
 
 	final IntMap idToObject = new IntMap();
@@ -227,7 +228,7 @@ public class ObjectSpace {
 				+ invokeMethod.cachedMethod.method.getName() + "(" + argString + ")");
 		}
 
-		byte responseData = invokeMethod.responseData;
+		short responseData = invokeMethod.responseData;
 		boolean transmitReturnValue = (responseData & returnValueMask) == returnValueMask;
 		boolean transmitExceptions = (responseData & returnExceptionMask) == returnExceptionMask;
 		int responseID = responseData & responseIdMask;
@@ -252,7 +253,7 @@ public class ObjectSpace {
 
 		InvokeMethodResult invokeMethodResult = new InvokeMethodResult();
 		invokeMethodResult.objectID = invokeMethod.objectID;
-		invokeMethodResult.responseID = (byte)responseID;
+		invokeMethodResult.responseID = (short)responseID;
 
 		// Do not return non-primitives if transmitReturnValue is false.
 		if (!transmitReturnValue && !invokeMethod.cachedMethod.method.getReturnType().isPrimitive()) {
@@ -306,14 +307,16 @@ public class ObjectSpace {
 		private boolean transmitExceptions = true;
 		private boolean remoteToString;
 		private boolean udp;
-		private Byte lastResponseID;
-		private byte nextResponseId = 1;
+		private volatile short lastResponseID = 0;
+		private short nextResponseId = 1;
 		private Listener responseListener;
+		private volatile int totalPendingResponsesCnt = 0;
 
 		final ReentrantLock lock = new ReentrantLock();
 		final Condition responseCondition = lock.newCondition();
-		final InvokeMethodResult[] responseTable = new InvokeMethodResult[64];
-		final boolean[] pendingResponses = new boolean[64];
+		final InvokeMethodResult[] responseTable = new InvokeMethodResult[responseTableMask + 1];
+		final short[] pendingResponses = new short[responseTableMask + 1];
+		final Object invokeLocker = new Object();
 
 		public RemoteInvocationHandler (Connection connection, final int objectID) {
 			super();
@@ -328,7 +331,9 @@ public class ObjectSpace {
 
 					int responseID = invokeMethodResult.responseID;
 					synchronized (this) {
-						if (pendingResponses[responseID]) responseTable[responseID] = invokeMethodResult;
+						if (pendingResponses[responseID & responseTableMask] == responseID) {
+							responseTable[responseID & responseTableMask] = invokeMethodResult;
+						}
 					}
 
 					lock.lock();
@@ -372,23 +377,26 @@ public class ObjectSpace {
 					remoteToString = (Boolean)args[0];
 					return null;
 				} else if (name.equals("waitForLastResponse")) {
-					if (lastResponseID == null) throw new IllegalStateException("There is no last response to wait for.");
-					return waitForResponse(lastResponseID);
+					short responseID = lastResponseID;
+					if (responseID == 0) throw new IllegalStateException("There is no last response to wait for.");
+					return waitForResponse(responseID);
 				} else if (name.equals("hasLastResponse")) {
-					if (lastResponseID == null) throw new IllegalStateException("There is no last response.");
+					short responseID = lastResponseID;
+					if (responseID == 0) throw new IllegalStateException("There is no last response.");
 					synchronized (this) {
-						return responseTable[lastResponseID] != null;
+						return responseTable[responseID & responseTableMask] != null;
 					}
 				} else if (name.equals("getLastResponseID")) {
-					if (lastResponseID == null) throw new IllegalStateException("There is no last response ID.");
-					return lastResponseID;
+					short responseID = lastResponseID;
+					if (responseID == 0) throw new IllegalStateException("There is no last response ID.");
+					return responseID;
 				} else if (name.equals("waitForResponse")) {
 					if (!transmitReturnValue && !transmitExceptions && nonBlocking)
 						throw new IllegalStateException("This RemoteObject is currently set to ignore all responses.");
-					return waitForResponse((Byte)args[0]);
+					return waitForResponse((Short)args[0]);
 				} else if (name.equals("hasResponse")) {
 					synchronized (this) {
-						return responseTable[(Byte)args[0]] != null;
+						return responseTable[((Short)args[0]) & responseTableMask] != null;
 					}
 				} else if (name.equals("getConnection")) {
 					return connection;
@@ -414,16 +422,30 @@ public class ObjectSpace {
 
 			// A invocation doesn't need a response if it's async and no return values or exceptions are wanted back.
 			boolean needsResponse = !udp && (transmitReturnValue || transmitExceptions || !nonBlocking);
-			byte responseID = 0;
+			short responseID = 0;
 			if (needsResponse) {
-				synchronized (this) {
-					// Increment the response counter and put it into the low bits of the responseID.
-					responseID = nextResponseId++;
-					if (nextResponseId > responseIdMask) nextResponseId = 1;
-					pendingResponses[responseID] = true;
+				synchronized (invokeLocker) {
+					while (true) {
+						synchronized (this) {
+							if (totalPendingResponsesCnt < responseTableMask + 1) {
+								// Find the first non-pending responseID.
+								do {
+									responseID = nextResponseId++;
+									if (nextResponseId > responseIdMask) nextResponseId = 1;
+								} while (pendingResponses[responseID & responseTableMask] != 0);
+								pendingResponses[responseID & responseTableMask] = responseID;
+								totalPendingResponsesCnt++;
+								break;
+							}
+						}
+						//This sleep is under lock "synchronized(invokeLocker)" but not under lock "synchronized(this)"
+						//So all sequenced invocations will wait (and totalPendingResponsesCnt could not increased),
+						// but invocation result can be handled (and totalPendingResponsesCnt could decreased)
+						Thread.sleep(10);
+					}
 				}
 				// Pack other data into the high bits.
-				byte responseData = responseID;
+				short responseData = responseID;
 				if (transmitReturnValue) responseData |= returnValueMask;
 				if (transmitExceptions) responseData |= returnExceptionMask;
 				invokeMethod.responseData = responseData;
@@ -441,7 +463,7 @@ public class ObjectSpace {
 					+ "#" + method.getName() + "(" + argString + ") (" + length + ")");
 			}
 
-			lastResponseID = (byte)(invokeMethod.responseData & responseIdMask);
+			lastResponseID = responseID;
 			if (nonBlocking || udp) {
 				Class returnType = method.getReturnType();
 				if (returnType.isPrimitive()) {
@@ -457,7 +479,7 @@ public class ObjectSpace {
 				return null;
 			}
 			try {
-				Object result = waitForResponse(lastResponseID);
+				Object result = waitForResponse(responseID);
 				if (result != null && result instanceof Exception)
 					throw (Exception)result;
 				else
@@ -466,13 +488,16 @@ public class ObjectSpace {
 				throw new TimeoutException("Response timed out: " + method.getDeclaringClass().getName() + "." + method.getName());
 			} finally {
 				synchronized (this) {
-					pendingResponses[responseID] = false;
-					responseTable[responseID] = null;
+					if (pendingResponses[responseID & responseTableMask] != 0) {
+						totalPendingResponsesCnt--;
+						pendingResponses[responseID & responseTableMask] = 0;
+						responseTable[responseID & responseTableMask] = null;
+					}
 				}
 			}
 		}
 
-		private Object waitForResponse (byte responseID) {
+		private Object waitForResponse (short responseID) {
 			if (connection.getEndPoint().getUpdateThread() == Thread.currentThread())
 				throw new IllegalStateException("Cannot wait for an RMI response on the connection's update thread.");
 
@@ -482,10 +507,10 @@ public class ObjectSpace {
 				long remaining = endTime - System.currentTimeMillis();
 				InvokeMethodResult invokeMethodResult;
 				synchronized (this) {
-					invokeMethodResult = responseTable[responseID];
+					invokeMethodResult = responseTable[responseID & responseTableMask];
 				}
 				if (invokeMethodResult != null) {
-					lastResponseID = null;
+					lastResponseID = 0;
 					return invokeMethodResult.result;
 				} else {
 					if (remaining <= 0) throw new TimeoutException("Response timed out.");
@@ -517,12 +542,12 @@ public class ObjectSpace {
 		// The top bits of the ID indicate if the remote invocation should respond with return values and exceptions, respectively.
 		// The remaining bites are a counter. This means up to 63 responses can be stored before undefined behavior occurs due to
 		// possible duplicate IDs. A response data of 0 means to not respond.
-		public byte responseData;
+		public short responseData;
 
 		public void write (Kryo kryo, Output output) {
 			output.writeInt(objectID, true);
 			output.writeInt(cachedMethod.methodClassID, true);
-			output.writeByte(cachedMethod.methodIndex);
+			output.writeShort(cachedMethod.methodIndex);
 
 			Serializer[] serializers = cachedMethod.serializers;
 			Object[] args = this.args;
@@ -534,7 +559,7 @@ public class ObjectSpace {
 					kryo.writeClassAndObject(output, args[i]);
 			}
 
-			output.writeByte(responseData);
+			output.writeShort(responseData);
 		}
 
 		public void read (Kryo kryo, Input input) {
@@ -543,7 +568,7 @@ public class ObjectSpace {
 			int methodClassID = input.readInt(true);
 			Class methodClass = kryo.getRegistration(methodClassID).getType();
 
-			byte methodIndex = input.readByte();
+			short methodIndex = input.readShort();
 			try {
 				cachedMethod = getMethods(kryo, methodClass)[methodIndex];
 			} catch (IndexOutOfBoundsException ex) {
@@ -562,88 +587,98 @@ public class ObjectSpace {
 					args[i] = kryo.readClassAndObject(input);
 			}
 
-			responseData = input.readByte();
+			responseData = input.readShort();
 		}
 	}
 
 	/** Internal message to return the result of a remotely invoked method. */
 	static public class InvokeMethodResult implements FrameworkMessage {
 		public int objectID;
-		public byte responseID;
+		public short responseID;
 		public Object result;
 	}
 
 	static CachedMethod[] getMethods (Kryo kryo, Class type) {
-		CachedMethod[] cachedMethods = methodCache.get(type); // Maybe should cache per Kryo instance?
-		if (cachedMethods != null) return cachedMethods;
+		HashMap<Class, CachedMethod[]> cache;
+		synchronized (methodCache) {
+			cache = methodCache.get(kryo);
+			if (cache == null) {
+				cache = new HashMap<Class, CachedMethod[]>();
+				methodCache.put(kryo, cache);
+			}
+		}
+		synchronized (cache) {
+			CachedMethod[] cachedMethods = cache.get(type);
+			if (cachedMethods != null) return cachedMethods;
 
-		ArrayList<Method> allMethods = new ArrayList();
-		Class nextClass = type;
-		while (nextClass != null) {
-			Collections.addAll(allMethods, nextClass.getDeclaredMethods());
-			nextClass = nextClass.getSuperclass();
-			if (nextClass == Object.class) break;
-		}
-		ArrayList<Method> methods = new ArrayList(Math.max(1, allMethods.size()));
-		for (int i = 0, n = allMethods.size(); i < n; i++) {
-			Method method = allMethods.get(i);
-			int modifiers = method.getModifiers();
-			if (Modifier.isStatic(modifiers)) continue;
-			if (Modifier.isPrivate(modifiers)) continue;
-			if (method.isSynthetic()) continue;
-			methods.add(method);
-		}
-		Collections.sort(methods, new Comparator<Method>() {
-			public int compare (Method o1, Method o2) {
-				// Methods are sorted so they can be represented as an index.
-				int diff = o1.getName().compareTo(o2.getName());
-				if (diff != 0) return diff;
-				Class[] argTypes1 = o1.getParameterTypes();
-				Class[] argTypes2 = o2.getParameterTypes();
-				if (argTypes1.length > argTypes2.length) return 1;
-				if (argTypes1.length < argTypes2.length) return -1;
-				for (int i = 0; i < argTypes1.length; i++) {
-					diff = argTypes1[i].getName().compareTo(argTypes2[i].getName());
+			ArrayList<Method> allMethods = new ArrayList();
+			Class nextClass = type;
+			while (nextClass != null) {
+				Collections.addAll(allMethods, nextClass.getDeclaredMethods());
+				nextClass = nextClass.getSuperclass();
+				if (nextClass == Object.class) break;
+			}
+			ArrayList<Method> methods = new ArrayList(Math.max(1, allMethods.size()));
+			for (int i = 0, n = allMethods.size(); i < n; i++) {
+				Method method = allMethods.get(i);
+				int modifiers = method.getModifiers();
+				if (Modifier.isStatic(modifiers)) continue;
+				if (Modifier.isPrivate(modifiers)) continue;
+				if (method.isSynthetic()) continue;
+				methods.add(method);
+			}
+			Collections.sort(methods, new Comparator<Method>() {
+				public int compare(Method o1, Method o2) {
+					// Methods are sorted so they can be represented as an index.
+					int diff = o1.getName().compareTo(o2.getName());
 					if (diff != 0) return diff;
+					Class[] argTypes1 = o1.getParameterTypes();
+					Class[] argTypes2 = o2.getParameterTypes();
+					if (argTypes1.length > argTypes2.length) return 1;
+					if (argTypes1.length < argTypes2.length) return -1;
+					for (int i = 0; i < argTypes1.length; i++) {
+						diff = argTypes1[i].getName().compareTo(argTypes2[i].getName());
+						if (diff != 0) return diff;
+					}
+					throw new RuntimeException("Two methods with same signature!"); // Impossible.
 				}
-				throw new RuntimeException("Two methods with same signature!"); // Impossible.
-			}
-		});
+			});
 
-		Object methodAccess = null;
-		if (asm && !Util.isAndroid && Modifier.isPublic(type.getModifiers())) methodAccess = MethodAccess.get(type);
+			Object methodAccess = null;
+			if (asm && !Util.isAndroid && Modifier.isPublic(type.getModifiers())) methodAccess = MethodAccess.get(type);
 
-		int n = methods.size();
-		cachedMethods = new CachedMethod[n];
-		for (int i = 0; i < n; i++) {
-			Method method = methods.get(i);
-			Class[] parameterTypes = method.getParameterTypes();
+			int n = methods.size();
+			cachedMethods = new CachedMethod[n];
+			for (int i = 0; i < n; i++) {
+				Method method = methods.get(i);
+				Class[] parameterTypes = method.getParameterTypes();
 
-			CachedMethod cachedMethod = null;
-			if (methodAccess != null) {
-				try {
-					AsmCachedMethod asmCachedMethod = new AsmCachedMethod();
-					asmCachedMethod.methodAccessIndex = ((MethodAccess)methodAccess).getIndex(method.getName(), parameterTypes);
-					asmCachedMethod.methodAccess = (MethodAccess)methodAccess;
-					cachedMethod = asmCachedMethod;
-				} catch (RuntimeException ignored) {
+				CachedMethod cachedMethod = null;
+				if (methodAccess != null) {
+					try {
+						AsmCachedMethod asmCachedMethod = new AsmCachedMethod();
+						asmCachedMethod.methodAccessIndex = ((MethodAccess) methodAccess).getIndex(method.getName(), parameterTypes);
+						asmCachedMethod.methodAccess = (MethodAccess) methodAccess;
+						cachedMethod = asmCachedMethod;
+					} catch (RuntimeException ignored) {
+					}
 				}
+
+				if (cachedMethod == null) cachedMethod = new CachedMethod();
+				cachedMethod.method = method;
+				cachedMethod.methodClassID = kryo.getRegistration(method.getDeclaringClass()).getId();
+				cachedMethod.methodIndex = i;
+
+				// Store the serializer for each final parameter.
+				cachedMethod.serializers = new Serializer[parameterTypes.length];
+				for (int ii = 0, nn = parameterTypes.length; ii < nn; ii++)
+					if (kryo.isFinal(parameterTypes[ii])) cachedMethod.serializers[ii] = kryo.getSerializer(parameterTypes[ii]); // getSerializer may fail?
+
+				cachedMethods[i] = cachedMethod;
 			}
-
-			if (cachedMethod == null) cachedMethod = new CachedMethod();
-			cachedMethod.method = method;
-			cachedMethod.methodClassID = kryo.getRegistration(method.getDeclaringClass()).getId();
-			cachedMethod.methodIndex = i;
-
-			// Store the serializer for each final parameter.
-			cachedMethod.serializers = new Serializer[parameterTypes.length];
-			for (int ii = 0, nn = parameterTypes.length; ii < nn; ii++)
-				if (kryo.isFinal(parameterTypes[ii])) cachedMethod.serializers[ii] = kryo.getSerializer(parameterTypes[ii]);
-
-			cachedMethods[i] = cachedMethod;
+			cache.put(type, cachedMethods);
+			return cachedMethods;
 		}
-		methodCache.put(type, cachedMethods);
-		return cachedMethods;
 	}
 
 	/** Returns the first object registered with the specified ID in any of the ObjectSpaces the specified connection belongs

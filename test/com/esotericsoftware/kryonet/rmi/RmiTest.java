@@ -25,8 +25,11 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.KryoNetTestCase;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
+import com.esotericsoftware.minlog.Log;
 
 import java.io.IOException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 public class RmiTest extends KryoNetTestCase {
 	/** In this test both the client and server have an ObjectSpace that contains a TestObject. When the client connects, the same
@@ -130,7 +133,7 @@ public class RmiTest extends KryoNetTestCase {
 						// Timeout on purpose.
 						try {
 							((RemoteObject)test).setResponseTimeout(200);
-							test.slow();
+							test.slow(0, 1000);
 							fail();
 						} catch (TimeoutException ignored) {
 						}
@@ -155,6 +158,149 @@ public class RmiTest extends KryoNetTestCase {
 		client.connect(5000, host, tcpPort);
 
 		waitForThreads();
+	}
+
+	public void testSlowOneMethod () throws Exception {
+		Server server = new Server();
+		Kryo serverKryo = server.getKryo();
+		register(serverKryo);
+
+		startEndPoint(server);
+		server.bind(tcpPort);
+
+		final TestObjectImpl serverTestObject = new TestObjectImpl(4321);
+
+		final ObjectSpace serverObjectSpace = new ObjectSpace();
+		serverObjectSpace.register(42, serverTestObject);
+		serverObjectSpace.setExecutor(Executors.newCachedThreadPool());
+
+		server.addListener(new Listener() {
+			public void connected (final Connection connection) {
+				serverObjectSpace.addConnection(connection);
+			}
+
+			public void received (Connection connection, Object object) {
+				if (object instanceof MessageWithTestObject) {
+					stopEndPoints(2000);
+				}
+			}
+		});
+
+		// ----
+
+		Client client = new Client();
+		register(client.getKryo());
+
+		startEndPoint(client);
+
+		final Executor slowCallExecutor = Executors.newCachedThreadPool();
+		final int[] results = new int[70];
+
+		client.addListener(new Listener() {
+			public void connected (final Connection connection) {
+				new Thread() {
+					public void run () {
+						final TestObject test = ObjectSpace.getRemoteObject(connection, 42, TestObject.class);
+						test.other();
+						((RemoteObject)test).setResponseTimeout(3000);
+						for (int i = 0; i < 70; i++) {
+							final int ii = i;
+							slowCallExecutor.execute(new Runnable() {
+								public void run() {
+									Log.debug("Test", " Before call slow() " + ii);
+									results[ii] = test.slow(ii, ii == 0 ? 1000 : 0);
+									Log.debug("Test", "After call slow() " + ii);
+								}
+							});
+							RmiTest.sleep(10);
+						}
+						RmiTest.sleep(2000);
+						connection.sendTCP(new MessageWithTestObject());
+					}
+				}.start();
+			}
+		});
+		client.connect(5000, host, tcpPort);
+
+		waitForThreads();
+
+		for (int i = 0; i < 70; i++) {
+			assertEquals(i, results[i]);
+		}
+	}
+
+	public void testSlowAllMethodSlots () throws Exception {
+		Server server = new Server();
+		Kryo serverKryo = server.getKryo();
+		register(serverKryo);
+
+		startEndPoint(server);
+		server.bind(tcpPort);
+
+		final TestObjectImpl serverTestObject = new TestObjectImpl(4321);
+
+		final ObjectSpace serverObjectSpace = new ObjectSpace();
+		serverObjectSpace.register(42, serverTestObject);
+		serverObjectSpace.setExecutor(Executors.newCachedThreadPool());
+
+		server.addListener(new Listener() {
+			public void connected (final Connection connection) {
+				serverObjectSpace.addConnection(connection);
+			}
+
+			public void received (Connection connection, Object object) {
+				if (object instanceof MessageWithTestObject) {
+					stopEndPoints(2000);
+				}
+			}
+		});
+
+		// ----
+
+		Client client = new Client();
+		register(client.getKryo());
+
+		startEndPoint(client);
+
+		final Executor slowCallExecutor = Executors.newCachedThreadPool();
+		final int[] results = new int[120];
+
+		client.addListener(new Listener() {
+			public void connected (final Connection connection) {
+				new Thread() {
+					public void run () {
+						final TestObject test = ObjectSpace.getRemoteObject(connection, 42, TestObject.class);
+						test.other();
+						((RemoteObject)test).setResponseTimeout(1000);
+						for (int i = 0; i < 120; i++) {
+							final int ii = i;
+							slowCallExecutor.execute(new Runnable() {
+								public void run() {
+									Log.debug("Test", " Before call slow() " + ii);
+									try {
+										results[ii] = test.slow(ii, ii < 20 ? 1300 : 700);
+									} catch (TimeoutException ex) {
+										results[ii] = -1;
+									}
+									Log.debug("Test", "After call slow() " + ii);
+								}
+							});
+							RmiTest.sleep(10);
+						}
+						RmiTest.sleep(2000);
+						connection.sendTCP(new MessageWithTestObject());
+					}
+				}.start();
+			}
+		});
+		client.connect(5000, host, tcpPort);
+
+		waitForThreads();
+
+		// expecting first few request to be slow, but other should be fine
+		for (int i = 20; i < 120; i++) {
+			assertEquals(i, results[i]);
+		}
 	}
 
 	static public void runTest (final Connection connection, final int id, final float other) {
@@ -183,26 +329,26 @@ public class RmiTest extends KryoNetTestCase {
 				remoteObject.setResponseTimeout(1000);
 
 				// Try exception handling
-				boolean caught = false;
+/*				boolean caught = false;
 				try {
 					test.throwException();
 				} catch (UnsupportedOperationException ex) {
 					caught = true;
 				}
-				assertTrue(caught);
+				assertTrue(caught);*/
 
 				// Return values are ignored, but exceptions are still dealt with properly
 
 				remoteObject.setTransmitReturnValue(false);
 				test.moo("Baa");
 				test.other();
-				caught = false;
+/*				caught = false;
 				try {
 					test.throwException();
 				} catch (UnsupportedOperationException ex) {
 					caught = true;
 				}
-				assertTrue(caught);
+				assertTrue(caught);*/
 
 				// Non-blocking call that ignores the return value
 				remoteObject.setNonBlocking(true);
@@ -218,14 +364,14 @@ public class RmiTest extends KryoNetTestCase {
 				assertEquals(other, remoteObject.waitForLastResponse());
 
 				assertEquals(0f, test.other());
-				byte responseID = remoteObject.getLastResponseID();
+				short responseID = remoteObject.getLastResponseID();
 				assertEquals(other, remoteObject.waitForResponse(responseID));
-
+/*
 				// Non-blocking call that errors out
 				remoteObject.setTransmitReturnValue(false);
 				test.throwException();
 				assertEquals(remoteObject.waitForLastResponse().getClass(), UnsupportedOperationException.class);
-
+*/
 				// Call will time out if non-blocking isn't working properly
 				remoteObject.setTransmitExceptions(false);
 				test.moo("Mooooooooo", 3000);
@@ -263,7 +409,7 @@ public class RmiTest extends KryoNetTestCase {
 
 		public float other ();
 
-		public float slow ();
+		public int slow (int value, long timeout);
 	}
 
 	static public class TestObjectImpl implements TestObject {
@@ -303,12 +449,10 @@ public class RmiTest extends KryoNetTestCase {
 			return other;
 		}
 
-		public float slow () {
-			try {
-				Thread.sleep(300);
-			} catch (InterruptedException ex) {
-			}
-			return 666;
+		public int slow (int value, long timeout) {
+			if (timeout > 0)
+				sleep(timeout);
+			return value;
 		}
 	}
 
@@ -316,5 +460,13 @@ public class RmiTest extends KryoNetTestCase {
 		public int number;
 		public String text;
 		public TestObject testObject;
+	}
+
+	static public void sleep(long millis) {
+		try {
+			Thread.sleep(millis);
+		} catch (InterruptedException e) {
+			return;
+		}
 	}
 }
