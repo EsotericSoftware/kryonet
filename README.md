@@ -10,6 +10,9 @@ KryoNet runs on both the desktop and on [Android](http://www.android.com/).
 
 KryoNet is ideal for any client/server application. It is very efficient, so is especially good for games. KryoNet can also be useful for inter-process communication.
 
+<details>
+  <summary><b><i>Click to expand the whole documentation</i></b></summary>
+  
 - [Running a server](#running-a-server)
 - [Connecting a client](#connecting-a-client)
 - [Registering classes](#registering-classes)
@@ -30,8 +33,8 @@ This code starts a server on TCP port 54555 and UDP port 54777:
 
 ```java
     Server server = new Server();
-    server.start();
     server.bind(54555, 54777);
+    server.start();
 ```
 
 The `start` method starts a thread to handle incoming connections, reading/writing to the socket, and notifying listeners.
@@ -273,3 +276,11 @@ Beyond this documentation page, you may find the following links useful:
 - [Kryo](https://github.com/EsotericSoftware/kryo) (used to do the serialization in KryoNet)
 - [Example code](examples/com/esotericsoftware/kryonet/examples)
 - [Unit tests](test/com/esotericsoftware/kryonet)
+  
+</details>
+
+## Maintained forks
+
+This project has been [mostly abandoned](https://github.com/EsotericSoftware/kryonet/commits/master) for a while now. It may be worth your time to consider exploring [some of the maintained forks](https://useful-forks.github.io/?repo=EsotericSoftware/kryonet).
+
+The most active fork as of this writing is the following one: https://github.com/crykn/kryonet
