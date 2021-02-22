@@ -33,8 +33,8 @@ This code starts a server on TCP port 54555 and UDP port 54777:
 
 ```java
     Server server = new Server();
-    server.start();
     server.bind(54555, 54777);
+    server.start();
 ```
 
 The `start` method starts a thread to handle incoming connections, reading/writing to the socket, and notifying listeners.
